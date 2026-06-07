@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Value-realization engine — p1-v1</title>
+<link rel="stylesheet" href="../assets/gpt-ui.css" />
+<style>
+  /* Minimal additions on top of gpt-ui.css — keep it product-true */
+  /* META tab bar — intentionally small/muted so it does not compete with ChatGPT chrome */
+  .topbar-tabs { display:flex; gap:10px; padding:5px 12px; border-bottom:1px solid var(--border);
+    background:var(--bg); position:sticky; top:0; z-index:20; align-items:center; height:45px; box-sizing:border-box; }
+  .topbar-tabs .tab { border-bottom:2px solid transparent; font-size:12px; color:var(--text-3);
+    padding:2px 2px 3px; cursor:pointer; }
+  .topbar-tabs .tab.active { border-bottom-color:var(--text-2); color:var(--text-2); }
+  .topbar-tabs .ctx { margin-left:auto; font-size:11px; color:var(--text-3); padding-right:6px; }
+  .view { display:none; height:calc(100vh - 45px); }
+  .view.active { display:block; }
+  /* avoid double-scroll: inner app fills the view, not the whole viewport */
+  .view .gpt-app { height:100%; }
+
+  /* sidebar saved-tool row */
+  .tool-row { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px;
+    cursor:pointer; font-size:14px; color:var(--text); }
+  .tool-row:hover { background:var(--hover); }
+  .tool-row .ic { width:16px; height:16px; flex:none; color:var(--text-2); }
+  .value-chip { font-size:11px; font-weight:600; color:var(--accent); background:var(--accent-soft);
+    border:1px solid var(--accent); border-radius:999px; padding:1px 7px; margin-left:auto; flex:none; }
+  .fade-in { animation: fadeIn .35s ease both; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+  .toolcard { border:1px solid var(--border-2); border-radius:12px; background:var(--bg-elev);
+    padding:12px 14px; display:flex; align-items:center; gap:12px; margin:6px 0 0; box-shadow:var(--shadow); }
+  .toolcard .meta { flex:1; min-width:0; }
+  .toolcard .meta .t { font-weight:600; }
+  .toolcard .meta .s { font-size:13px; color:var(--text-2); }
+
+  .run-output { border:1px solid var(--border); border-radius:10px; background:var(--bg); padding:12px 14px; margin-top:8px; }
+  .pattern-note { font-size:12px; color:var(--text-3); margin-top:10px; }
+  .pattern-note b { color:var(--text-2); font-weight:600; }
+
+  /* Internal copilot */
+  .copilot { display:grid; grid-template-columns: 1fr; height:100%; }
+  .copilot.detail-open { grid-template-columns: 1fr 420px; }
+  .queue-wrap { overflow:auto; padding:0 0 40px; }
+  .queue-head { display:flex; align-items:center; gap:12px; padding:18px 24px 6px; }
+  .queue-head h2 { margin:0; font-size:18px; }
+  .queue-head .sub { font-size:13px; color:var(--text-2); }
+  .holdout-pill { margin-left:auto; }
+  table.queue { width:100%; border-collapse:collapse; font-size:13px; }
+  table.queue thead th { position:sticky; top:0; background:var(--bg); text-align:left;
+    font-size:12px; color:var(--text-3); font-weight:600; padding:10px 14px; border-bottom:1px solid var(--border);
+    cursor:pointer; user-select:none; white-space:nowrap; }
+  table.queue thead th.sorted::after { content:" ↓"; color:var(--text-2); }
+  table.queue tbody td { padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  table.queue tbody tr { cursor:pointer; }
+  table.queue tbody tr:hover { background:var(--hover); }
+  table.queue tbody tr.sel { background:var(--accent-soft); }
+  .co { font-weight:600; color:var(--text); }
+  .wf { color:var(--text-2); }
+  .num { font-variant-numeric:tabular-nums; }
+  .worst td { box-shadow: inset 3px 0 0 var(--danger); }
+
+  .detail { border-left:1px solid var(--border); background:var(--sidebar-bg); overflow:auto; padding:18px 20px 60px; }
+  .detail h3 { margin:0 0 2px; font-size:17px; }
+  .detail .sub { font-size:13px; color:var(--text-2); margin-bottom:14px; }
+  .detail .close { float:right; cursor:pointer; color:var(--text-3); font-size:18px; line-height:1; }
+  .kv { display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px solid var(--border); }
+  .kv .k { color:var(--text-2); }
+  .why { font-size:13px; color:var(--text-2); background:var(--bg-elev); border:1px solid var(--border-2);
+    border-radius:10px; padding:10px 12px; margin:6px 0 0; }
+  .why b { color:var(--text); }
+  .teach { border:1px solid var(--border-2); border-radius:10px; background:var(--bg-elev); padding:12px; margin-top:8px; font-size:13.5px; }
+  .teach textarea { width:100%; border:none; outline:none; resize:vertical; background:transparent;
+    color:var(--text); font:inherit; font-size:13.5px; line-height:1.55; min-height:120px; }
+  .artifact-tag { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-2);
+    border:1px dashed var(--border-2); border-radius:8px; padding:5px 9px; margin-top:8px; }
+  .detail .actions { display:flex; gap:8px; margin-top:14px; }
+  .confirm { border:1px solid var(--border-2); background:var(--bg-elev); border-radius:10px; padding:12px 14px; margin-top:12px; font-size:13px; }
+  .confirm .ttl { font-weight:600; color:var(--text); margin-bottom:4px; }
+  .holdout-note { font-size:12px; color:var(--warn); background:var(--warn-soft); border:1px solid var(--warn);
+    border-radius:8px; padding:8px 10px; margin-top:10px; }
+  .section-h { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); margin:16px 0 4px; }
+  /* inline icon SVGs align to text/button center */
+  .model .chev { display:inline-flex; align-items:center; }
+  .composer .icon-btn svg { display:block; }
+  .composer .icon-btn.send { display:inline-flex; align-items:center; justify-content:center;
+    background:transparent; color:var(--btn-bg); padding:0; }
+  .composer .icon-btn.send:hover { background:transparent; }
+</style>
+</head>
+<body class="gpt light">
+
+<div class="topbar-tabs">
+  <div class="tab active" data-view="customer" onclick="switchView('customer')">Customer</div>
+  <div class="tab" data-view="internal" onclick="switchView('internal')">Internal copilot</div>
+  <span class="ctx">Value-realization engine · design exploration</span>
+</div>
+
+<!-- ===================== CUSTOMER VIEW ===================== -->
+<div id="view-customer" class="view active">
+  <div class="gpt-app">
+    <aside class="gpt-sidebar">
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 3.2a6.8 6.8 0 11-6.8 6.8A6.8 6.8 0 0112 5.2z"/></svg>
+        ChatGPT
+      </div>
+      <div class="newchat" onclick="newChat()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        New chat
+      </div>
+      <div class="section-label">Saved tools</div>
+      <div id="saved-tools">
+        <!-- saved tools injected here -->
+        <div class="nav-item" style="color:var(--text-3);font-size:13px;cursor:default">None yet</div>
+      </div>
+      <div class="section-label">Chats</div>
+      <div class="nav-item active">Weekly stock cleanup</div>
+      <div class="nav-item">Supplier quote rewrite</div>
+      <div class="nav-item">Job sheet template</div>
+      <div class="spacer"></div>
+      <div class="acct">
+        <div class="avatar">SC</div>
+        <div style="font-size:13px;line-height:1.2">SignCo Print &amp; Logistics<br><span class="muted small">Business · 5 seats</span></div>
+      </div>
+    </aside>
+
+    <main class="gpt-main">
+      <div class="gpt-topbar">
+        <div class="model">ChatGPT 5 <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="right"><span class="badge">Business</span></div>
+      </div>
+
+      <div class="gpt-scroll">
+        <div class="thread" id="cust-thread">
+
+          <div class="msg user"><div class="bubble">Same as every week — here's the stock export from the ERP. Can you clean it into the report I send the floor?</div></div>
+
+          <div class="msg assistant">
+            <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+            <div class="body">
+              <div class="name">ChatGPT</div>
+              <p>Done. I took the <code>stock_export.csv</code> (18,042 rows), dropped the discontinued and zero-on-hand SKUs, merged the duplicate part numbers, and rolled it up by location.</p>
+              <p>Result: <b>900 rows</b>, grouped by line, with reorder flags on anything under the min threshold.</p>
+              <table>
+                <thead><tr><th>Location</th><th>SKUs</th><th>Below min</th></tr></thead>
+                <tbody>
+                  <tr><td>Cork — main floor</td><td>312</td><td>14</td></tr>
+                  <tr><td>Cork — vinyl bay</td><td>188</td><td>6</td></tr>
+                  <tr><td>Dublin — finishing</td><td>400</td><td>9</td></tr>
+                </tbody>
+              </table>
+              <p>Cleaned report attached as <code>weekly_stock_report.xlsx</code>.</p>
+            </div>
+          </div>
+
+          <div class="msg user"><div class="bubble">Perfect, that's the one. Thanks.</div></div>
+
+          <!-- PROACTIVE CARD -->
+          <div class="msg assistant">
+            <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+            <div class="body" style="width:100%">
+              <div class="name">ChatGPT</div>
+              <div class="proactive" id="proactive-card">
+                <div class="eyebrow">Noticed a pattern</div>
+                <p style="margin:8px 0 0">You have done this cleanup four weeks running. Want me to save it as a one-click tool so you do not rebuild it each time?</p>
+                <div class="row">
+                  <button class="btn" onclick="acceptTool()">Accept</button>
+                  <button class="btn secondary" onclick="notNow()">Not now</button>
+                  <button class="btn ghost" onclick="dismissCard()">Dismiss</button>
+                </div>
+                <div class="pattern-note">
+                  <b>Why you are seeing this:</b> same export → same 900-row report, 4 weeks in a row. I only flag a tool after a clear repeat, and I go quiet if you dismiss.
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <button class="icon-btn" title="Attach" onclick="attachNoop()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          <textarea id="cust-input" class="ta" rows="1" placeholder="Message ChatGPT" onkeydown="composerKey(event)"></textarea>
+          <button class="icon-btn send" title="Send" onclick="sendMessage()"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 16.5V8m-3.5 3.5L12 8l3.5 3.5" fill="none" stroke="var(--bg-elev)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+        <div class="composer-hint">ChatGPT can make mistakes. Prototype — design exploration.</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===================== INTERNAL COPILOT VIEW ===================== -->
+<div id="view-internal" class="view">
+  <div class="gpt-app no-sidebar">
+    <main class="gpt-main">
+      <div class="gpt-topbar">
+        <div class="model">Value-realization engine <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="right">
+          <span class="badge">CS / growth pod</span>
+          <span class="badge green">Treatment active</span>
+        </div>
+      </div>
+
+      <div class="copilot" id="copilot">
+        <div class="queue-wrap">
+          <div class="queue-head">
+            <div>
+              <h2>Single-workflow stalls, with headroom</h2>
+              <div class="sub">Detected from in-product usage. Click a row to review the inferred next workflow.</div>
+            </div>
+            <span class="badge holdout-pill">2 of 6 in holdout — not contacted</span>
+          </div>
+          <table class="queue" id="queue">
+            <thead>
+              <tr>
+                <th data-sort="company">Company</th>
+                <th data-sort="industry">Industry</th>
+                <th data-sort="seats" class="num">Seats</th>
+                <th data-sort="workflow">Stuck on</th>
+                <th data-sort="conc" class="num">% conc.</th>
+                <th data-sort="idle" class="num">Days idle</th>
+                <th>Trend</th>
+                <th>Group</th>
+              </tr>
+            </thead>
+            <tbody id="queue-body"></tbody>
+          </table>
+        </div>
+
+        <aside class="detail" id="detail" style="display:none"></aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="proto-flag">Prototype — design exploration, not a shipped product</div>
+
+<script>
+/* ---------- view switching ---------- */
+function switchView(v){
+  document.querySelectorAll('.topbar-tabs .tab').forEach(t=>t.classList.toggle('active', t.dataset.view===v));
+  document.getElementById('view-customer').classList.toggle('active', v==='customer');
+  document.getElementById('view-internal').classList.toggle('active', v==='internal');
+}
+
+/* ---------- CUSTOMER: proactive accept flow ---------- */
+let toolSaved = false;
+function acceptTool(){
+  if(toolSaved) return;
+  toolSaved = true;
+
+  // 1. saved tool appears in sidebar with value chip
+  const list = document.getElementById('saved-tools');
+  list.innerHTML = `
+    <div class="tool-row fade-in" onclick="rerunFromSidebar()">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7v8l10-12h-7z"/></svg>
+      Weekly stock cleanup
+      <span class="value-chip">~3 hrs saved/month</span>
+    </div>`;
+
+  // 2. assistant confirms + shows the durable, re-runnable tool
+  const card = document.getElementById('proactive-card');
+  card.outerHTML = `
+    <div class="fade-in">
+      <p style="margin:0 0 6px"><b>Saved.</b> "Weekly stock cleanup" is now a one-click tool in your sidebar.</p>
+      <div class="toolcard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex:none"><path d="M13 2L3 14h7v8l10-12h-7z"/></svg>
+        <div class="meta">
+          <div class="t">Weekly stock cleanup</div>
+          <div class="s">Drop a stock export → cleaned 900-row report, reorder flags, by location.</div>
+        </div>
+        <span class="value-chip">~3 hrs saved/month</span>
+      </div>
+      <p class="muted small" style="margin-top:8px">Next week, just drop the file or tap the tool — no need to re-explain the steps.</p>
+    </div>`;
+  scrollThread();
+}
+function notNow(){
+  const card = document.getElementById('proactive-card');
+  card.outerHTML = `<p class="muted fade-in" style="margin:0">No problem — I will hold off and ask again only if the pattern keeps up.</p>`;
+  scrollThread();
+}
+function dismissCard(){
+  const card = document.getElementById('proactive-card');
+  card.outerHTML = `<p class="muted small fade-in" style="margin:0">Dismissed. I will stay quiet on this one.</p>`;
+  scrollThread();
+}
+/* durable second action: re-run the saved tool in one click */
+let runCount = 0;
+function rerunFromSidebar(){
+  if(!toolSaved) return;
+  runCount++;
+  const thread = document.getElementById('cust-thread');
+  const block = document.createElement('div');
+  block.className = 'fade-in';
+  block.innerHTML = `
+    <div class="msg user"><div class="bubble">▶ Ran <b>Weekly stock cleanup</b> on this week's export</div></div>
+    <div class="msg assistant">
+      <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+      <div class="body">
+        <div class="name">ChatGPT</div>
+        <div class="run-output">
+          <p style="margin:0 0 6px">Same steps as your saved tool — no setup needed.</p>
+          <p style="margin:0"><b>17,990 rows → 900 rows.</b> 28 SKUs below min flagged. <code>weekly_stock_report.xlsx</code> ready.</p>
+        </div>
+        <p class="muted small" style="margin-top:8px">Run ${runCount} of your saved tool · ~45 min saved this week</p>
+      </div>
+    </div>`;
+  thread.appendChild(block);
+  scrollThread();
+}
+function scrollThread(){
+  const s = document.querySelector('#view-customer .gpt-scroll');
+  setTimeout(()=>{ s.scrollTop = s.scrollHeight; }, 60);
+}
+
+/* ---------- CUSTOMER: composer ---------- */
+function sendMessage(){
+  const ta = document.getElementById('cust-input');
+  const text = ta.value.trim();
+  if(!text) return;
+  const thread = document.getElementById('cust-thread');
+
+  const u = document.createElement('div');
+  u.className = 'msg user fade-in';
+  u.innerHTML = `<div class="bubble"></div>`;
+  u.querySelector('.bubble').textContent = text;
+  thread.appendChild(u);
+
+  const a = document.createElement('div');
+  a.className = 'msg assistant fade-in';
+  a.innerHTML = `
+    <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+    <div class="body">
+      <div class="name">ChatGPT</div>
+      <p style="margin:0">Got it — I can help with that. (Prototype reply: this is a design exploration, so responses are canned.)</p>
+    </div>`;
+  thread.appendChild(a);
+
+  ta.value = '';
+  scrollThread();
+}
+function composerKey(e){
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+}
+function attachNoop(){ /* harmless no-op — attach is not wired in this prototype */ }
+function newChat(){
+  const ta = document.getElementById('cust-input');
+  if(ta){ ta.value = ''; ta.focus(); }
+}
+
+/* ---------- INTERNAL: queue data ---------- */
+const accounts = [
+  { company:"SignCo Print & Logistics", industry:"Mfg / print", seats:5, workflow:"Spreadsheet cleanup", conc:95, idle:11, trend:"decl", group:"treatment", worst:true,
+    next:"Supplier quote drafting", why:"They paste supplier emails in 3 of 5 sessions but never ask for a reply — the cleanup habit already touches the same data.",
+    teach:"Hi SignCo — you've nailed the weekly stock report. One thing the export already gives you: supplier pricing. Want me to draft your reorder quotes from the same file? I've saved a reusable \"Supplier quote\" tool — drop next week's export and it fills the email for you." },
+  { company:"Harbour Vinyl Co.", industry:"Mfg / signage", seats:4, workflow:"Image background removal", conc:88, idle:7, trend:"flat", group:"treatment", worst:false,
+    next:"Product listing copy", why:"Every cleaned image is followed by a manual marketplace upload — they're describing products by hand right after.",
+    teach:"You're cleaning up product photos beautifully. The next bottleneck is writing the listing copy — I've saved a \"Listing writer\" tool that turns a photo + spec into marketplace-ready text." },
+  { company:"Meridian Field Services", industry:"Field service", seats:8, workflow:"Invoice wording", conc:91, idle:14, trend:"decl", group:"holdout", worst:false,
+    next:"—", why:"Holdout account — no suggestion is generated or sent.",
+    teach:"" },
+  { company:"Autumn Legal LLP", industry:"Legal (plaintiff)", seats:3, workflow:"Demand-letter drafting", conc:97, idle:9, trend:"flat", group:"treatment", worst:false,
+    next:"Discovery summarisation", why:"They paste long PDFs but only extract dates — the demand-letter workflow already reads the same documents.",
+    teach:"Your demand letters are a strong, repeatable workflow. The documents you paste in could also give you a discovery summary in one pass — I've saved a \"Discovery digest\" tool you can re-run per case." },
+  { company:"Northgate Joinery", industry:"Mfg / woodwork", seats:6, workflow:"Quote estimation", conc:84, idle:5, trend:"flat", group:"holdout", worst:false,
+    next:"—", why:"Holdout account — no suggestion is generated or sent.",
+    teach:"" },
+  { company:"Bluepeak Logistics", industry:"Logistics", seats:7, workflow:"Route note tidy-up", conc:90, idle:13, trend:"decl", group:"treatment", worst:false,
+    next:"Delay-email drafting", why:"Route notes flagging delays are never turned into customer comms — they retype the same apology each time.",
+    teach:"You're tidying route notes daily. When a route slips, I can draft the customer delay email from the same note — saved as a \"Delay notice\" tool you re-use per incident." },
+];
+
+let sortKey = "idle", sortDir = -1, selectedIdx = null;
+
+function sparkline(trend){
+  // flat or declining mini SVG
+  const pts = trend==="decl" ? "0,6 12,7 24,9 36,12 48,16 60,19" : "0,12 12,11 24,12 36,12 48,11 60,12";
+  const color = trend==="decl" ? "var(--danger)" : "var(--text-3)";
+  return `<svg class="spark" width="60" height="22" viewBox="0 0 60 22" fill="none"><polyline points="${pts}" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+function groupBadge(g){
+  return g==="holdout" ? `<span class="badge warn">Holdout</span>` : `<span class="badge green">Treatment</span>`;
+}
+function renderQueue(){
+  const sorted = [...accounts].sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(typeof av==="string"){ return av.localeCompare(bv)*sortDir; }
+    return (av-bv)*sortDir;
+  });
+  const body = document.getElementById('queue-body');
+  body.innerHTML = sorted.map(a=>{
+    const i = accounts.indexOf(a);
+    return `<tr class="${a.worst?'worst':''} ${selectedIdx===i?'sel':''}" onclick="openDetail(${i})">
+      <td class="co">${a.company}</td>
+      <td class="wf">${a.industry}</td>
+      <td class="num">${a.seats}</td>
+      <td class="wf">${a.workflow}</td>
+      <td class="num">${a.conc}%</td>
+      <td class="num">${a.idle}</td>
+      <td>${sparkline(a.trend)}</td>
+      <td>${groupBadge(a.group)}</td>
+    </tr>`;
+  }).join("");
+  document.querySelectorAll('#queue thead th').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.sort===sortKey);
+  });
+}
+document.querySelectorAll('#queue thead th').forEach(th=>{
+  if(!th.dataset.sort) return;
+  th.onclick = ()=>{
+    if(sortKey===th.dataset.sort){ sortDir*=-1; } else { sortKey=th.dataset.sort; sortDir=-1; }
+    renderQueue();
+  };
+});
+
+function openDetail(i){
+  selectedIdx = i;
+  const a = accounts[i];
+  const d = document.getElementById('detail');
+  document.getElementById('copilot').classList.add('detail-open');
+  d.style.display = 'block';
+
+  const isHoldout = a.group==="holdout";
+  d.innerHTML = `
+    <span class="close" onclick="closeDetail()">×</span>
+    <h3>${a.company}</h3>
+    <div class="sub">${a.industry} · ${a.seats} seats · ${groupBadge(a.group)}</div>
+
+    <div class="section-h">Frozen usage</div>
+    <div class="kv"><span class="k">Stuck on</span><span>${a.workflow}</span></div>
+    <div class="kv"><span class="k">Usage concentration</span><span class="num">${a.conc}%</span></div>
+    <div class="kv"><span class="k">Days idle</span><span class="num">${a.idle}</span></div>
+    <div class="kv"><span class="k">Trend (8 wk)</span><span>${sparkline(a.trend)} ${a.trend==='decl'?'declining':'flat'}</span></div>
+
+    ${ isHoldout ? `
+      <div class="holdout-note" style="margin-top:16px">
+        <b>Holdout account.</b> No next-workflow suggestion is generated and nothing is sent. This account measures what happens with no intervention — the baseline the treated accounts are scored against at 90 days.
+      </div>
+    ` : `
+      <div class="section-h">Inferred next workflow</div>
+      <div style="font-weight:600">${a.next}</div>
+      <div class="why"><b>Why we picked this:</b> ${a.why}</div>
+
+      <div class="section-h">Drafted teach</div>
+      <div class="teach">
+        <textarea id="teach-text">${a.teach}</textarea>
+        <div class="artifact-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7v8l10-12h-7z"/></svg>
+          Leaves behind: a reusable "${a.next}" tool the account re-runs on its own
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="approve(${i})">Approve &amp; send</button>
+        <button class="btn secondary" onclick="editTeach()">Edit</button>
+        <button class="btn ghost" onclick="closeDetail()">Skip</button>
+      </div>
+      <div id="confirm-slot"></div>
+    `}
+  `;
+  renderQueue();
+}
+function closeDetail(){
+  selectedIdx = null;
+  document.getElementById('detail').style.display='none';
+  document.getElementById('copilot').classList.remove('detail-open');
+  renderQueue();
+}
+function editTeach(){
+  const ta = document.getElementById('teach-text');
+  if(ta){ ta.focus(); ta.selectionStart = ta.value.length; }
+}
+function approve(i){
+  const a = accounts[i];
+  const slot = document.getElementById('confirm-slot');
+  slot.innerHTML = `
+    <div class="confirm fade-in">
+      <div class="ttl">Sent to ${a.company}</div>
+      Teach delivered in-product on the account's next session, with the reusable "${a.next}" tool attached.
+      Counts as a workflow only if it runs ≥3 times in 14 days and recurs in a second window.
+      <div style="margin-top:8px"><b>Measured against the randomized holdout at 90 days.</b></div>
+    </div>
+    <div class="holdout-note">Holdout accounts (e.g. Meridian, Northgate) are never sent to — they hold the baseline that proves whether this teach caused durable adoption.</div>
+  `;
+  // disable buttons
+  document.querySelectorAll('#detail .actions .btn').forEach(b=>{ b.disabled=true; });
+}
+
+/* init */
+renderQueue();
+</script>
+</body>
+</html>

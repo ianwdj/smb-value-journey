@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Value-realization journey — end to end (prototype)</title>
+<link rel="stylesheet" href="../assets/gpt-ui.css" />
+<style>
+  /* ============================================================
+     journey.html — ONE clickable, ChatGPT-fidelity journey.
+     Built on gpt-ui.css. Dark theme (the real Business flow is dark).
+     Everything structural leans on the shared system; only step-
+     specific layout lives here. Restrained green: small labels only.
+     ============================================================ */
+
+  /* ---- journey scaffold: a single full-height stage + nav rail ---- */
+  body.gpt { overflow:hidden; }
+  .stage { height:calc(100vh - 46px); overflow:hidden; }
+  .step { display:none; height:100%; }
+  .step.active { display:block; }
+  .fade-in { animation: fadeIn .35s ease both; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:none;} }
+  .spin { width:34px; height:34px; border:3px solid var(--border-2); border-top-color:var(--text);
+    border-radius:50%; margin:0 auto 18px; animation:r 1s linear infinite; }
+  @keyframes r { to { transform:rotate(360deg); } }
+
+  /* ---- bottom journey rail (step indicator + Back/Next) ---- */
+  .journey-rail { position:fixed; bottom:0; left:0; right:0; height:46px; z-index:60;
+    display:flex; align-items:center; gap:14px; padding:0 16px;
+    background:var(--sidebar-bg); border-top:1px solid var(--border); }
+  .journey-rail .brandlet { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-3); font-weight:600; }
+  .stepdots { display:flex; align-items:center; gap:5px; margin:0 auto; }
+  .stepdot { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-3);
+    padding:3px 8px; border-radius:999px; cursor:pointer; white-space:nowrap; }
+  .stepdot .pip { width:7px; height:7px; border-radius:50%; background:var(--border-2); flex:none; }
+  .stepdot.done .pip { background:var(--accent); }
+  .stepdot.on { color:var(--text); background:var(--hover); }
+  .stepdot.on .pip { background:var(--text); }
+  @media(max-width:900px){ .stepdot span{ display:none; } }
+  .rail-btns { display:flex; gap:8px; }
+  .rail-btns .btn { padding:6px 14px; font-size:13px; }
+
+  /* ---- checkout (step 1) ---- */
+  .co-top { display:flex; align-items:center; gap:14px; padding:16px 28px; }
+  .co-mark { width:30px; height:30px; border-radius:50%; border:1px solid var(--border-2); display:grid; place-items:center; }
+  .checkout { display:grid; grid-template-columns:1.2fr .9fr; gap:28px; max-width:980px;
+    margin:8px auto; padding:0 28px 40px; overflow:auto; max-height:calc(100% - 64px); }
+  @media(max-width:820px){ .checkout{ grid-template-columns:1fr; } }
+  .seg2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  .seg2 .opt { border:1px solid var(--border-2); border-radius:12px; padding:14px; cursor:pointer; }
+  .seg2 .opt.sel { border-color:var(--text); }
+  .seg2 .opt .p { font-size:14px; color:var(--text-2); margin-top:2px; }
+  .stepfield { border:1px solid var(--border-2); border-radius:12px; padding:14px; display:flex; align-items:center; justify-content:space-between; }
+  .stepfield .n { display:flex; gap:10px; align-items:center; }
+  .stepbtn { width:30px; height:30px; border-radius:8px; border:1px solid var(--border-2); background:transparent; color:var(--text); cursor:pointer; font-size:18px; line-height:1; }
+  .save { display:flex; gap:10px; align-items:flex-start; border:1px solid var(--accent);
+    background:var(--accent-soft); border-radius:12px; padding:12px 14px; margin-top:14px; }
+  .summary .line { display:flex; justify-content:space-between; margin:8px 0; color:var(--text-2); }
+  .summary .due { display:flex; justify-content:space-between; font-weight:700; color:var(--text); font-size:18px; margin-top:8px; }
+
+  /* ---- success + research (steps 2-3) ---- */
+  .centered { max-width:680px; margin:0 auto; padding:7vh 24px 0; text-align:center; height:100%; overflow:auto; }
+  .success-glyph { width:60px; height:60px; border-radius:50%; border:1px solid var(--accent);
+    color:var(--accent); display:grid; place-items:center; margin:0 auto 18px; }
+  .profile { text-align:left; }
+  .editrow { display:grid; grid-template-columns:110px 1fr; gap:10px; align-items:center; margin:10px 0; }
+  .editrow input, .editrow select { font:inherit; padding:8px 10px; border-radius:8px;
+    border:1px solid var(--border-2); background:var(--bg); color:var(--text); }
+
+  /* ---- first-run welcome / role picker (step 4) lives INSIDE the shell ---- */
+  .firstrun { max-width:var(--content-max); margin:0 auto; padding:6vh 20px 0; }
+  .firstrun h1 { font-size:26px; font-weight:600; text-align:center; margin:0 0 6px; }
+  .firstrun .sub { text-align:center; color:var(--text-2); margin:0 0 26px; }
+  .role-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  @media(max-width:680px){ .role-grid{ grid-template-columns:1fr; } }
+  .role-tile { border:1px solid var(--border-2); border-radius:14px; padding:16px; cursor:pointer;
+    display:flex; gap:12px; align-items:flex-start; background:var(--bg-elev); text-align:left; }
+  .role-tile:hover { background:var(--hover); border-color:var(--text-3); }
+  .role-tile .ic { width:34px; height:34px; border-radius:9px; border:1px solid var(--border);
+    display:grid; place-items:center; color:var(--text-2); flex:none; }
+  .role-tile .t { font-weight:600; }
+  .role-tile .d { font-size:13px; color:var(--text-2); margin-top:2px; }
+  .firstrun-skip { text-align:center; margin-top:18px; }
+  .firstrun-skip a { color:var(--text-3); font-size:13px; cursor:pointer; text-decoration:underline; }
+  /* recommended-start card (single, not a wall) */
+  .reco { border:1px solid var(--accent); border-radius:16px; background:var(--bg-elev);
+    box-shadow:var(--shadow); padding:18px 20px; }
+  .reco .eyebrow { color:var(--accent); }
+  .reco .reco-title { font-size:18px; font-weight:600; margin:8px 0 4px; }
+  .reco .row { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; align-items:center; }
+
+  /* ---- saved-tool row in sidebar ---- */
+  .tool-row { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:14px; color:var(--text); }
+  .tool-row:hover { background:var(--hover); }
+  .tool-row .ic { width:16px; height:16px; flex:none; color:var(--text-2); }
+  .value-chip { font-size:11px; font-weight:600; color:var(--accent); background:var(--accent-soft);
+    border:1px solid var(--accent); border-radius:999px; padding:1px 7px; margin-left:auto; flex:none; }
+  .toolcard { border:1px solid var(--border-2); border-radius:12px; background:var(--bg-elev);
+    padding:12px 14px; display:flex; align-items:center; gap:12px; margin:6px 0 0; box-shadow:var(--shadow); }
+  .toolcard .meta { flex:1; min-width:0; }
+  .toolcard .meta .t { font-weight:600; }
+  .toolcard .meta .s { font-size:13px; color:var(--text-2); }
+  .run-output { border:1px solid var(--border); border-radius:10px; background:var(--bg); padding:12px 14px; margin-top:8px; }
+  .pattern-note { font-size:12px; color:var(--text-3); margin-top:10px; }
+  .pattern-note b { color:var(--text-2); font-weight:600; }
+
+  /* ---- connectors (step 6): OAuth-style consent flow ---- */
+  .conn-wrap { max-width:var(--content-max); margin:0 auto; padding:20px; }
+  .conn-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:680px){ .conn-grid{ grid-template-columns:1fr; } }
+  .conn-tile { border:1px solid var(--border); border-radius:14px; background:var(--bg-elev); padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .conn-tile .head { display:flex; align-items:center; gap:12px; }
+  .conn-tile .logo { width:40px; height:40px; border-radius:10px; display:grid; place-items:center;
+    font-weight:700; font-size:13px; color:var(--text); background:var(--hover); border:1px solid var(--border); flex:none; }
+  .conn-tile .name { font-weight:600; }
+  .conn-tile .desc { color:var(--text-2); font-size:13.5px; }
+  .conn-tile .state { font-size:12px; color:var(--text-3); display:flex; align-items:center; gap:6px; }
+  .conn-tile .foot { margin-top:auto; display:flex; gap:8px; align-items:center; }
+  /* admin layer banner */
+  .admin-banner { display:flex; gap:10px; align-items:flex-start; border:1px solid var(--border-2);
+    background:var(--bg-elev); border-radius:12px; padding:12px 14px; margin-bottom:16px; font-size:13.5px; color:var(--text-2); }
+  .admin-banner b { color:var(--text); }
+  /* OAuth consent modal */
+  .modal-veil { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:70; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-veil.open { display:flex; }
+  .consent { width:440px; max-width:100%; max-height:88vh; overflow:auto; background:var(--bg-elev);
+    border:1px solid var(--border-2); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+  .consent .c-head { padding:18px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+  .consent .c-head .logo { width:34px; height:34px; border-radius:9px; background:var(--hover); border:1px solid var(--border); display:grid; place-items:center; font-weight:700; font-size:12px; }
+  .consent .c-head .arrow { color:var(--text-3); }
+  .consent .c-body { padding:16px 20px; }
+  .consent .acct-pick { border:1px solid var(--border-2); border-radius:10px; padding:10px 12px; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+  .consent .acct-pick .av { width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff; display:grid; place-items:center; font-size:12px; font-weight:600; }
+  .consent .acct-pick .switch { margin-left:auto; font-size:12px; color:var(--text-2); cursor:pointer; text-decoration:underline; }
+  .scope-list { list-style:none; margin:10px 0 0; padding:0; }
+  .scope-list li { display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+  .scope-list li:last-child { border-bottom:0; }
+  .scope-list .ro { font-size:11px; font-weight:600; color:var(--accent); border:1px solid var(--accent);
+    background:var(--accent-soft); border-radius:999px; padding:0 7px; margin-left:auto; flex:none; align-self:center; }
+  .scope-list .ic { color:var(--text-2); flex:none; margin-top:1px; }
+  .consent .c-foot { padding:14px 20px 18px; border-top:1px solid var(--border); }
+  .consent .c-foot .btn { width:100%; }
+  .consent .trust { font-size:11.5px; color:var(--text-3); margin-top:10px; display:flex; gap:6px; align-items:center; justify-content:center; }
+  .consent .trust a { color:var(--text-3); text-decoration:underline; }
+
+  /* ---- playbooks (step 7) ---- */
+  .pb-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:680px){ .pb-grid{ grid-template-columns:1fr; } }
+  .playbook { border:1px solid var(--border); border-radius:14px; background:var(--bg-elev); padding:16px; }
+  .playbook .pb-pattern { font-size:13px; color:var(--text-2); }
+  .playbook .pb-title { font-weight:600; font-size:16px; margin:6px 0 4px; }
+  .playbook .pb-time { font-size:13px; color:var(--accent); font-weight:600; margin-top:8px; }
+  .playbook .pb-foot { display:flex; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .pattern-row { display:flex; gap:12px; padding:11px 0; border-bottom:1px solid var(--border); }
+  .pattern-row:last-child { border-bottom:0; }
+  .pattern-row .dot2 { width:8px; height:8px; border-radius:50%; background:var(--warn); margin-top:7px; flex:none; }
+  .pattern-row .ev { color:var(--text-3); font-size:13px; margin-top:2px; }
+
+  /* ---- admin consumption-health (step 8): de-shelled internal tool ---- */
+  .tool-sidebar .brand svg { flex:none; }
+  .tool-title { font-weight:600; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .tool-title .scope { font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-3); border:1px solid var(--border-2); border-radius:5px; padding:1px 6px; }
+  .console-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+  .console-head h1 { font-size:22px; margin:0 0 4px; }
+  .kpi-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .kpi { border:1px solid var(--border); border-radius:10px; padding:10px 14px; background:var(--bg-elev); min-width:120px; }
+  .kpi .n { font-size:22px; font-weight:600; line-height:1.1; }
+  .kpi .l { font-size:12px; color:var(--text-3); }
+  .kpi.alert .n { color:var(--danger); }
+  .stackbar { display:flex; height:30px; border-radius:7px; overflow:hidden; border:1px solid var(--border); margin:4px 0 6px; }
+  .stackbar > span { display:flex; align-items:center; justify-content:center; height:100%; font-size:12px; font-variant-numeric:tabular-nums; min-width:0; }
+  .seg-grow { background:#6b7280; color:#fff; } .seg-stable { background:#9ca3af; color:#111; }
+  .seg-decline { background:var(--warn); color:#111; } .seg-novelty { background:#d97757; color:#fff; }
+  .stack-axis { display:flex; justify-content:space-between; font-size:11px; color:var(--text-3); font-variant-numeric:tabular-nums; margin-top:2px; }
+  .cohort-legend { display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; margin-top:14px; }
+  @media (max-width:560px){ .cohort-legend{ grid-template-columns:1fr; } }
+  .cohort-row { display:flex; gap:9px; align-items:flex-start; font-size:13px; }
+  .cohort-row .sw { flex:none; width:11px; height:11px; border-radius:3px; margin-top:3px; }
+  .cohort-row .ttl { font-weight:600; }
+  .cohort-row .ttl .cnt { font-weight:400; color:var(--text-2); }
+  .cohort-row.concern .ttl { color:var(--warn); }
+  .cohort-row .note { color:var(--text-2); margin-top:1px; }
+  .sw-grow{background:#6b7280;} .sw-stable{background:#9ca3af;} .sw-decline{background:var(--warn);} .sw-novelty{background:#d97757;}
+  .exp-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px){ .exp-grid{grid-template-columns:1fr;} }
+  .exp-cell { border:1px solid var(--border); border-radius:10px; padding:14px; }
+  .exp-cell .lab { font-size:12px; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; }
+  .exp-cell .big { font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .exp-cell .delta { font-size:13px; color:var(--text-2); margin-top:2px; }
+  .honest { font-size:13px; color:var(--text-2); border-left:3px solid var(--warn); padding:8px 12px;
+    background:var(--warn-soft); border-radius:0 8px 8px 0; margin-top:12px; }
+  .panel h3 { margin:0 0 4px; font-size:15px; }
+  .panel .sub { font-size:13px; color:var(--text-3); margin:0 0 12px; }
+
+  .fixnote { font-size:12px; color:var(--text-3); font-style:italic; margin-top:6px; border-left:2px solid var(--border-2); padding-left:8px; }
+  .nav-actions { display:flex; justify-content:space-between; gap:12px; margin-top:22px; }
+  .section-h { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); margin:16px 0 6px; }
+</style>
+</head>
+<body class="gpt dark">
+
+<!-- ============================================================
+     STAGE: all eight steps live here; the router toggles .active
+     ============================================================ -->
+<div class="stage">
+
+<!-- ===================== STEP 1 — CHECKOUT ===================== -->
+<section class="step active" id="s1">
+  <div class="co-top">
+    <div class="co-mark">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 013.9 5 4 4 0 01-1 7 4 4 0 01-5.8 0 4 4 0 01-1-7A4 4 0 0112 3z"/></svg>
+    </div>
+    <strong>Configure your plan</strong>
+    <span class="badge" style="margin-left:auto">ChatGPT Business</span>
+  </div>
+
+  <div class="checkout">
+    <div>
+      <h3 style="margin-top:0">Plan details</h3>
+      <div class="seg2">
+        <div class="opt sel" id="optMo" onclick="setBill('mo')"><strong>Monthly billing</strong><div class="p">USD $25 / seat / mo</div></div>
+        <div class="opt" id="optYr" onclick="setBill('yr')"><strong>Annual billing</strong> <span class="badge green">Save 20%</span><div class="p">USD $20 / seat / mo</div></div>
+      </div>
+
+      <label class="small muted">Seats</label>
+      <div class="stepfield">
+        <div class="n"><button class="stepbtn" onclick="seats(-1)">−</button><strong id="seatN" style="font-size:18px">2</strong><button class="stepbtn" onclick="seats(1)">+</button></div>
+        <span class="small muted" id="seatHint">Most teams your size start with 2. Change anytime.</span>
+      </div>
+      <div class="fixnote">fix: the live flow defaults to a blind 5 seats; this defaults to a sensible, explained 2</div>
+
+      <h3 style="margin-top:22px">Payment</h3>
+      <div class="field"><label>Card number</label><input placeholder="1234 1234 1234 1234"/></div>
+      <div class="grid cols-2" style="gap:12px">
+        <div class="field"><label>Expiration</label><input placeholder="MM / YY"/></div>
+        <div class="field"><label>Security code</label><input placeholder="CVC"/></div>
+      </div>
+      <div class="save">
+        <span style="color:var(--accent);flex:none;margin-top:1px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </span>
+        <div>
+          <strong>Save payment details for renewals</strong>
+          <div class="small muted">On usage-priced products a saved card is what keeps value flowing without a re-auth interruption.</div>
+        </div>
+      </div>
+      <div class="fixnote">fixes: save-card pulled above the fold and on by default · one primary CTA (no Apple-Pay vs Subscribe competition) · no promo banner over the purchase</div>
+
+      <button class="btn block" id="payBtn" style="margin-top:16px" onclick="pay()">Subscribe</button>
+      <div class="small muted" style="margin-top:8px">Renews until cancelled. Cancel anytime in Settings.</div>
+    </div>
+
+    <div class="panel summary">
+      <h3 style="margin-top:0">Business plan</h3>
+      <div class="small muted">Advanced model access · SSO + MFA · projects &amp; custom GPTs · admin controls</div>
+      <hr class="divider"/>
+      <div class="line"><span id="sumLine">2 × monthly</span><span id="sumSub">US$50.00</span></div>
+      <div class="line"><span>Estimated tax</span><span>US$0.00</span></div>
+      <div class="due"><span>Due today</span><span id="sumDue">US$50.00</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== STEP 2 — PAYMENT SUCCESS ===================== -->
+<section class="step" id="s2">
+  <div class="centered">
+    <div id="s2-loading">
+      <div class="success-glyph">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <h2 style="margin:0 0 6px">Payment successful</h2>
+      <p class="muted">Your workspace has been created. You can invite members to collaborate.</p>
+      <div class="spin" style="margin-top:18px"></div>
+      <p class="small muted">Creating your workspace…</p>
+      <button class="btn secondary" style="margin-top:18px;padding:6px 16px;font-size:13px" onclick="goStep(3)">Continue</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== STEP 3 — SILENT RESEARCH AGENT ===================== -->
+<section class="step" id="s3">
+  <div class="centered">
+    <div id="s3-searching">
+      <div class="spin"></div>
+      <h2 style="margin:0 0 6px">Setting up your workspace</h2>
+      <p class="muted">Looking up <strong>contact@ianjohnson.io</strong> so we can suggest where to start, instead of dropping you on a blank page.</p>
+    </div>
+    <div id="s3-found" style="display:none">
+      <div class="panel profile" style="text-align:left">
+        <div class="eyebrow">What we found. Correct anything.</div>
+        <div class="editrow"><label class="muted">Name</label><input id="fName" value="Ian Johnson"/></div>
+        <div class="editrow"><label class="muted">Company</label><input id="fCo" value="SignCo Print &amp; Logistics"/></div>
+        <div class="editrow"><label class="muted">Role</label><input id="fRole" value="Operations / owner"/></div>
+        <div class="editrow"><label class="muted">Industry</label>
+          <select id="fInd">
+            <option>Manufacturing / print</option>
+            <option>Field service</option>
+            <option>Professional services</option>
+            <option>Legal services</option>
+          </select>
+        </div>
+        <div class="small muted" style="margin-top:8px">Inferred from public business signals only. Nothing private was read, and nothing is connected yet.</div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button class="btn" onclick="goStep(4)">Looks right, continue</button>
+          <button class="btn secondary" onclick="goStep(4)">I edited it, re-tailor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== STEPS 4–7 — INSIDE THE PERSISTENT CHATGPT SHELL ===================== -->
+<section class="step" id="shell">
+  <div class="gpt-app">
+
+    <!-- PERSISTENT LEFT SIDEBAR (visible from first-run onward) -->
+    <aside class="gpt-sidebar">
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 3.2a6.8 6.8 0 11-6.8 6.8A6.8 6.8 0 0112 5.2z"/></svg>
+        ChatGPT
+      </div>
+      <div class="newchat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New chat
+      </div>
+
+      <div class="section-label">Saved tools</div>
+      <div id="saved-tools">
+        <div class="nav-item" style="color:var(--text-3);font-size:13px;cursor:default">None yet</div>
+      </div>
+
+      <div class="section-label">Workspace</div>
+      <div class="nav-item" id="nav-templates" onclick="showPlaceholder('Template gallery','A browsable set of starting points by role. Out of scope for this prototype; the recommended-start card on first run stands in for it.')">Template gallery</div>
+      <div class="nav-item" id="nav-builder" onclick="showPlaceholder('Agent builder','Where a saved tool becomes a configurable agent. Out of scope for this prototype.')">Agent builder</div>
+      <div class="nav-item" id="nav-connect" onclick="goStep(6)">Connect systems</div>
+
+      <div class="section-label">Chats</div>
+      <div class="nav-item active">Weekly stock cleanup</div>
+      <div class="nav-item">Supplier quote rewrite</div>
+      <div class="nav-item">Job sheet template</div>
+
+      <div class="spacer"></div>
+      <div class="acct">
+        <div class="avatar">SC</div>
+        <div style="font-size:13px;line-height:1.2">SignCo Print &amp; Logistics<br><span class="muted small">Business · 2 seats</span></div>
+      </div>
+    </aside>
+
+    <!-- MAIN: persistent top bar + a slot the router fills per step -->
+    <main class="gpt-main">
+      <div class="gpt-topbar">
+        <div class="model">ChatGPT 5 <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+        <div class="right"><span class="badge">Business</span></div>
+      </div>
+
+      <div class="gpt-scroll" id="shell-scroll">
+
+        <!-- ---- STEP 4 view: first-run welcome + recommended start ---- -->
+        <div class="shell-view" id="view-firstrun">
+          <div class="firstrun" id="fr-welcome">
+            <h1>What will you be using ChatGPT for?</h1>
+            <p class="sub">One quick question lets us put a relevant first step in front of you. You can change this anytime.</p>
+            <div class="role-grid">
+              <button class="role-tile" onclick="pickRole('ops')">
+                <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg></span>
+                <span><span class="t">Operations &amp; admin</span><span class="d">Clean up spreadsheets, reports, recurring back-office work.</span></span>
+              </button>
+              <button class="role-tile" onclick="pickRole('sales')">
+                <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></span>
+                <span><span class="t">Sales</span><span class="d">Follow-ups, quotes, lead triage, proposals.</span></span>
+              </button>
+              <button class="role-tile" onclick="pickRole('field')">
+                <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-5.2-7-11a7 7 0 0114 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+                <span><span class="t">Field service</span><span class="d">Scheduling, dispatch, work orders, job invoices.</span></span>
+              </button>
+              <button class="role-tile" onclick="pickRole('prof')">
+                <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h12l4 4v12H4z"/><path d="M16 4v4h4M8 13h8M8 17h6"/></svg></span>
+                <span><span class="t">Professional services</span><span class="d">Notes to actions, proposals, status updates.</span></span>
+              </button>
+            </div>
+            <div class="firstrun-skip">
+              <a onclick="skipFirstRun()">Skip. I'll explore on my own.</a>
+            </div>
+          </div>
+
+          <!-- after a role pick: ONE recommended start + skip (not a wall) -->
+          <div class="firstrun" id="fr-reco" style="display:none">
+            <h1>Here's a good first step</h1>
+            <p class="sub" id="fr-reco-sub">Based on your role. One click runs it on your real work now.</p>
+            <div class="reco">
+              <div class="eyebrow">Recommended for you</div>
+              <div class="reco-title" id="reco-title">Clean and dedupe a stock or order spreadsheet</div>
+              <div class="muted" id="reco-desc">Drop your weekly export and get a cleaned, deduped report grouped by location, with reorder flags.</div>
+              <div class="row">
+                <button class="btn" onclick="runRecommended()">Run on my work</button>
+                <button class="btn secondary" onclick="skipFirstRun()">Start from scratch</button>
+                <a class="small" style="color:var(--text-3);cursor:pointer;text-decoration:underline" onclick="skipFirstRun()">Skip</a>
+              </div>
+            </div>
+            <p class="small muted" style="text-align:center;margin-top:16px">The chat box and your left navigation stay available the whole time. You can ignore this and type anything, or open the template gallery yourself.</p>
+          </div>
+        </div>
+
+        <!-- ---- BLANK view: genuine empty surface for users who opt out of guidance ---- -->
+        <div class="shell-view" id="view-blank" style="display:none">
+          <div class="thread" id="blank-thread">
+            <div style="max-width:var(--content-max);margin:14vh auto 0;text-align:center;color:var(--text-3)">
+              <p style="font-size:15px;color:var(--text-2);margin:0 0 4px">Nothing here yet.</p>
+              <p class="small" style="margin:0">Type below to start, or pick a saved tool from the left when you have one.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- STEP 5 view: first value moment (proactive save-as-tool) ---- -->
+        <div class="shell-view" id="view-value" style="display:none">
+          <div class="thread" id="value-thread">
+            <div style="text-align:center;margin:0 0 18px">
+              <span class="badge" style="font-weight:500">4 weeks later</span>
+              <p class="small muted" style="margin:8px auto 0;max-width:440px">You have run this cleanup by hand each week. This is the fourth time, same export, same report.</p>
+            </div>
+            <div class="msg user"><div class="bubble">Here's the stock export from the ERP. Can you clean it into the report I send the floor?</div></div>
+
+            <div class="msg assistant">
+              <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+              <div class="body">
+                <div class="name">ChatGPT</div>
+                <p>Done. I took <code>stock_export.csv</code> (18,042 rows), dropped discontinued and zero-on-hand SKUs, merged duplicate part numbers, and rolled it up by location.</p>
+                <p>Result: <b>900 rows</b>, grouped by line, with reorder flags on anything under the minimum threshold.</p>
+                <table>
+                  <thead><tr><th>Location</th><th>SKUs</th><th>Below min</th></tr></thead>
+                  <tbody>
+                    <tr><td>Cork, main floor</td><td>312</td><td>14</td></tr>
+                    <tr><td>Cork, vinyl bay</td><td>188</td><td>6</td></tr>
+                    <tr><td>Dublin, finishing</td><td>400</td><td>9</td></tr>
+                  </tbody>
+                </table>
+                <p>Cleaned report attached as <code>weekly_stock_report.xlsx</code>.</p>
+              </div>
+            </div>
+
+            <div class="msg user"><div class="bubble">Perfect, that's the one. Thanks.</div></div>
+
+            <!-- PROACTIVE: save as a tool (push, on an earned trigger) -->
+            <div class="msg assistant">
+              <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+              <div class="body" style="width:100%">
+                <div class="name">ChatGPT</div>
+                <div class="proactive" id="proactive-card">
+                  <div class="eyebrow">Noticed a pattern</div>
+                  <p style="margin:8px 0 0">You have done this cleanup four weeks running. Want me to save it as a one-click tool so you do not rebuild it each time?</p>
+                  <div class="row">
+                    <button class="btn" onclick="acceptTool()">Save as a tool</button>
+                    <button class="btn secondary" onclick="notNow()">Not now</button>
+                    <button class="btn ghost" onclick="dismissCard()">Dismiss</button>
+                  </div>
+                  <div class="pattern-note">
+                    <b>Why you are seeing this:</b> same export → same 900-row report, 4 weeks in a row. I only flag a tool after a clear repeat, and I go quiet if you dismiss.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- STEP 6 view: connectors (OAuth-style consent) ---- -->
+        <div class="shell-view" id="view-connect" style="display:none">
+          <div class="conn-wrap">
+            <div class="msg assistant" style="margin:0 0 16px">
+              <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+              <div class="body">
+                <div class="name">ChatGPT</div>
+                <p style="margin:0">You have been running saved tools for a while. Connect a system and the same engine can see across your tools and spot work worth automating that it could not see before.</p>
+              </div>
+            </div>
+
+            <div class="admin-banner">
+              <span style="color:var(--text-2);flex:none;margin-top:1px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 5-3.4 7.7-8 9-4.6-1.3-8-4-8-9V7z"/></svg>
+              </span>
+              <div><b>Two-layer access.</b> Your workspace admin has enabled these connectors at read-only. You still authorize your own account separately below; ChatGPT only ever reaches content your own login already permits.</div>
+            </div>
+
+            <div class="conn-grid" id="conn-grid"><!-- tiles injected --></div>
+
+            <div class="nav-actions">
+              <button class="btn secondary" onclick="goStep(5)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>Back</button>
+              <button class="btn" id="to-playbooks" disabled onclick="goStep(7)">See suggested playbooks <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-left:4px"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- STEP 7 view: suggested playbooks ---- -->
+        <div class="shell-view" id="view-playbooks" style="display:none">
+          <div class="conn-wrap">
+            <div class="msg assistant" style="margin:0 0 8px">
+              <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+              <div class="body">
+                <div class="name">ChatGPT</div>
+                <p style="margin:0 0 12px">Here is what we see across what you connected: patterns detected from your own data. Nothing has been changed, and nothing runs until you set it up.</p>
+                <div class="proactive" style="margin:0">
+                  <div class="eyebrow">Detected patterns · <span id="pb-source">based on connected systems</span></div>
+                  <div id="pattern-list"></div>
+                  <p class="small muted" style="margin:12px 0 0">We only flag work we have seen repeat, not one-offs.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-h" style="margin-top:22px">Suggested playbooks</div>
+            <p class="small muted" style="margin:0 0 12px">Estimated time saved is our best guess from observed volume; we show real numbers once a playbook has run.</p>
+            <div class="pb-grid" id="pb-grid"></div>
+
+            <div class="nav-actions">
+              <button class="btn secondary" onclick="goStep(6)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>Back to connections</button>
+              <span class="small muted" style="align-self:center" id="pb-tally">0 playbooks set up</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- PERSISTENT COMPOSER: present from first-run through playbooks -->
+      <div class="composer-wrap" id="shell-composer">
+        <div id="attach-chips" style="display:none;gap:8px;padding:0 4px 8px;flex-wrap:wrap"></div>
+        <div class="composer">
+          <button class="icon-btn" title="Attach a file" onclick="attachDemo()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          <textarea id="shell-input" class="ta" rows="1" placeholder="Message ChatGPT" onkeydown="composerKey(event)"></textarea>
+          <button class="icon-btn send" title="Send" onclick="sendMessage()"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 16.5V8m-3.5 3.5L12 8l3.5 3.5" fill="none" stroke="var(--bg-elev)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+        <div class="composer-hint">ChatGPT can make mistakes. Prototype, design exploration.</div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ===================== STEP 8 — ADMIN CONSUMPTION HEALTH (de-shelled internal tool) ===================== -->
+<section class="step" id="s8">
+  <div class="gpt-app">
+    <aside class="gpt-sidebar tool-sidebar">
+      <div class="brand">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="var(--text)" stroke-width="1.4"/><path d="M5 13l3-4 3 2.5L15 6" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Consumption Health</span>
+      </div>
+      <div class="section-label">Reports</div>
+      <div class="nav-item active">Consumption Health</div>
+      <div class="nav-item">Activation funnel</div>
+      <div class="nav-item">Renewal watch</div>
+      <div class="nav-item">Holdout registry</div>
+      <div class="section-label">Saved cohorts</div>
+      <div class="nav-item">Single-workflow SMB</div>
+      <div class="nav-item">Silently declining</div>
+      <div class="nav-item">Novelty-then-faded</div>
+      <div class="spacer"></div>
+      <div class="acct">
+        <span class="avatar">IJ</span>
+        <div style="font-size:13px"><div>Growth / Scaled-Revenue</div><div class="muted small">internal · read-only data</div></div>
+      </div>
+    </aside>
+
+    <main class="gpt-main">
+      <div class="gpt-topbar">
+        <div class="tool-title">Consumption Health <span class="scope">internal</span></div>
+        <div class="right">
+          <span class="badge">SMB base · n=20 sample</span>
+          <button class="btn secondary" id="refreshBtn" style="padding:6px 14px;font-size:13px">Refresh window</button>
+        </div>
+      </div>
+
+      <div class="gpt-scroll">
+        <div class="wrap">
+          <div class="console-head">
+            <div>
+              <h1>Consumption Health</h1>
+              <div class="muted small">Post-activation SMB accounts · trailing two 14-day windows · last sync 2026-06-06</div>
+            </div>
+            <div class="kpi-row">
+              <div class="kpi"><div class="n">20</div><div class="l">accounts in view</div></div>
+              <div class="kpi"><div class="n">1.6</div><div class="l">durable workflows / acct</div></div>
+              <div class="kpi alert"><div class="n">6</div><div class="l">at-risk, no alert fires</div></div>
+            </div>
+          </div>
+
+          <section class="panel" style="margin-bottom:16px">
+            <h3>Portfolio</h3>
+            <p class="sub">20 SMB accounts split by durable-workflow trajectory across the last two windows. Healthy cohorts are neutral grey; the concerning half is in warning tones. Half the portfolio still looks "active."</p>
+            <div class="eyebrow" style="margin-bottom:4px">Share of portfolio by trajectory</div>
+            <div class="stackbar">
+              <span class="seg-grow" style="width:25%">25%</span>
+              <span class="seg-stable" style="width:25%">25%</span>
+              <span class="seg-decline" style="width:20%">20%</span>
+              <span class="seg-novelty" style="width:30%">30%</span>
+            </div>
+            <div class="stack-axis"><span>0% of portfolio</span><span>100%</span></div>
+            <div class="cohort-legend">
+              <div class="cohort-row"><span class="sw sw-grow"></span><div><div class="ttl">Growing <span class="cnt">· 5 accounts · 25%</span></div><div class="note">Added a 2nd durable workflow that persisted into the current window.</div></div></div>
+              <div class="cohort-row"><span class="sw sw-stable"></span><div><div class="ttl">Stable <span class="cnt">· 5 accounts · 25%</span></div><div class="note">One durable workflow, flat across both windows. Fine today, no headroom captured.</div></div></div>
+              <div class="cohort-row concern"><span class="sw sw-decline"></span><div><div class="ttl">Silently declining <span class="cnt">· 4 accounts · 20%</span></div><div class="note"><b>The visible problem.</b> Durable-workflow runs trend down window-over-window, but raw activity still registers, so no churn alert fires.</div></div></div>
+              <div class="cohort-row concern"><span class="sw sw-novelty"></span><div><div class="ttl">Novelty-then-faded <span class="cnt">· 6 accounts · 30%</span></div><div class="note">Spiked in window 1, failed the persistence test in window 2. Counted as activated, never became durable.</div></div></div>
+            </div>
+          </section>
+
+          <section class="panel" style="margin-bottom:16px">
+            <h3>What counts as a durable workflow</h3>
+            <p class="sub">The metric is deliberately strict so a spike or raw activity cannot qualify. A workflow counts only if all three hold:</p>
+            <ul class="defn-list" style="list-style:none;margin:0;padding:0">
+              <li style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:12px"><span class="badge" style="flex:none">1 · recurs</span><span class="small" style="font-size:14px">At least <b>3 runs in 14 days</b>. A one-off or a demo does not register.</span></li>
+              <li style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:12px"><span class="badge" style="flex:none">2 · persists</span><span class="small" style="font-size:14px">Present across <b>two consecutive windows</b>. This kills novelty pops: the spike that fades in window 2 fails here.</span></li>
+              <li style="padding:10px 0;display:flex;gap:12px"><span class="badge" style="flex:none">3 · ties to outcome</span><span class="small" style="font-size:14px">Linked to a <b>user-side outcome</b>, <b>not raw agent activity</b>. Activity often rises right before a budget cut, so counting activity reads a decline as health.</span></li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <div>
+                <h3>Experiment · install-next-workflow</h3>
+                <p class="sub" style="margin-bottom:0">Randomized at signup. Treatment gets the value-realization engine; holdout gets nothing.</p>
+              </div>
+            </div>
+            <div class="exp-grid" style="margin-top:14px">
+              <div class="exp-cell">
+                <div class="lab">Treatment (engine on)</div>
+                <div class="big">2.1</div><div class="delta">durable workflows / account</div>
+                <hr class="divider"/>
+                <div class="lab">Retained into window 2</div><div class="big">81%</div>
+              </div>
+              <div class="exp-cell">
+                <div class="lab">Holdout (engine off)</div>
+                <div class="big">1.4</div><div class="delta">durable workflows / account</div>
+                <hr class="divider"/>
+                <div class="lab">Retained into window 2</div><div class="big">67%</div>
+              </div>
+            </div>
+            <div class="honest">
+              <b>Read this honestly:</b> more workflows <i>correlates</i> with retention. The lift above (+0.7 workflows, +14 pts retained) is suggestive, not yet causal. Only the randomized holdout proves the engine <i>caused</i> it rather than selecting already-healthy accounts. We pre-commit to reporting a null if the gap does not hold. <span class="small">[assumption · modeled mock data]</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+</div><!-- /stage -->
+
+<!-- ===================== OAUTH CONSENT MODAL (step 6) ===================== -->
+<div class="modal-veil" id="consentVeil">
+  <div class="consent" id="consentBox"><!-- injected --></div>
+</div>
+
+<!-- ===================== GENERIC PLACEHOLDER / INFO DIALOG ===================== -->
+<div class="modal-veil" id="infoVeil">
+  <div class="consent" id="infoBox" style="width:400px"><!-- injected --></div>
+</div>
+
+<!-- ===================== JOURNEY RAIL (step indicator + Back/Next) ===================== -->
+<div class="journey-rail">
+  <span class="brandlet">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+    Journey
+  </span>
+  <div class="stepdots" id="stepdots"></div>
+  <div class="rail-btns">
+    <button class="btn secondary" id="backBtn" onclick="prevStep()">Back</button>
+    <button class="btn" id="nextBtn" onclick="nextStep()">Next</button>
+  </div>
+</div>
+
+<div class="proto-flag">Prototype: design exploration, not a shipped product</div>
+
+<script>
+/* =======================================================================
+   TOP-LEVEL STEP ROUTER (vanilla, no deps).
+   Logical steps 1..8. Steps 4-7 all render inside the persistent #shell
+   (one ChatGPT app instance) by swapping .shell-view; steps 1,2,3,8 are
+   standalone sections. The rail drives Back/Next and the indicator.
+   ======================================================================= */
+const STEPS = [
+  { n:1, label:'Checkout',      sec:'s1' },
+  { n:2, label:'Success',       sec:'s2' },
+  { n:3, label:'Research',      sec:'s3' },
+  { n:4, label:'First run',     sec:'shell', view:'view-firstrun' },
+  { n:5, label:'First value',   sec:'shell', view:'view-value' },
+  { n:6, label:'Connectors',    sec:'shell', view:'view-connect' },
+  { n:7, label:'Playbooks',     sec:'shell', view:'view-playbooks' },
+  { n:8, label:'Admin health',  sec:'s8' },
+];
+let cur = 1;
+
+function renderDots(){
+  const wrap = document.getElementById('stepdots');
+  wrap.innerHTML = STEPS.map(s=>{
+    const cls = s.n===cur ? 'on' : (s.n<cur ? 'done' : '');
+    return `<div class="stepdot ${cls}" onclick="goStep(${s.n})"><span class="pip"></span><span>${s.n}. ${s.label}</span></div>`;
+  }).join('');
+  document.getElementById('backBtn').disabled = cur===1;
+  const nb = document.getElementById('nextBtn');
+  nb.textContent = cur===STEPS.length ? 'Done' : 'Next';
+  nb.disabled = cur===STEPS.length;
+}
+
+function showSection(sec){
+  document.querySelectorAll('.stage > .step').forEach(el=>el.classList.toggle('active', el.id===sec));
+}
+function showShellView(view){
+  document.querySelectorAll('.shell-view').forEach(el=>{ el.style.display = (el.id===view ? 'block':'none'); });
+  // composer is present for first-run, value, connectors, playbooks — i.e. all shell views
+  document.getElementById('shell-composer').style.display = 'block';
+  document.getElementById('shell-scroll').scrollTop = 0;
+}
+
+function goStep(n){
+  const step = STEPS.find(s=>s.n===n);
+  if(!step) return;
+  cur = n;
+  // any explicit router navigation leaves the opt-out blank surface behind
+  if(typeof blankMode !== 'undefined') blankMode = false;
+  showSection(step.sec);
+  if(step.sec==='shell'){ showShellView(step.view); }
+  // step-specific entry behavior
+  if(n===2){ enterSuccess(); }
+  if(n===3){ enterResearch(); }
+  renderDots();
+}
+function nextStep(){ if(cur<STEPS.length) goStep(cur+1); }
+function prevStep(){ if(cur>1) goStep(cur-1); }
+
+/* ---------------- STEP 1: checkout ---------------- */
+let bill='mo', seatN=2;
+const price = ()=> bill==='mo'?25:20;
+function setBill(b){ bill=b; document.getElementById('optMo').classList.toggle('sel',b==='mo'); document.getElementById('optYr').classList.toggle('sel',b==='yr'); syncSummary(); }
+function seats(d){ seatN=Math.max(1,seatN+d); document.getElementById('seatN').textContent=seatN;
+  document.getElementById('seatHint').textContent = seatN<=2 ? 'Most teams your size start with 2. Change anytime.' : 'You can add or remove seats anytime; billing follows active seats.'; syncSummary(); }
+function syncSummary(){ const sub=(seatN*price()).toFixed(2);
+  document.getElementById('sumLine').textContent = seatN+' × '+(bill==='mo'?'monthly':'annual');
+  document.getElementById('sumSub').textContent='US$'+sub; document.getElementById('sumDue').textContent='US$'+sub; }
+function pay(){ const b=document.getElementById('payBtn'); b.textContent='Processing…'; b.disabled=true;
+  setTimeout(()=>{ goStep(2); }, 900); }
+
+/* ---------------- STEP 2: success ---------------- */
+function enterSuccess(){
+  // brief loading state, then auto-advance into the research agent
+  setTimeout(()=>{ if(cur===2) goStep(3); }, 1700);
+}
+
+/* ---------------- STEP 3: silent research ---------------- */
+function enterResearch(){
+  document.getElementById('s3-searching').style.display='block';
+  document.getElementById('s3-found').style.display='none';
+  setTimeout(()=>{
+    if(cur!==3) return;
+    document.getElementById('s3-searching').style.display='none';
+    const f=document.getElementById('s3-found'); f.style.display='block'; f.classList.add('fade-in');
+  }, 1600);
+}
+
+/* ---------------- STEP 4: first-run welcome + recommended start ---------------- */
+const RECO = {
+  ops:   { title:'Clean and dedupe a stock or order spreadsheet', desc:'Drop your weekly export and get a cleaned, deduped report grouped by location, with reorder flags.', echo:'operations' },
+  sales: { title:'Turn a deal\'s history into a follow-up email', desc:'Point at a recent thread and get a ready-to-send follow-up drafted from the deal\'s own context.', echo:'sales' },
+  field: { title:'Build today\'s route from your open jobs', desc:'Paste your open jobs and get an ordered route plus a work order for each stop.', echo:'field-service' },
+  prof:  { title:'Turn meeting notes into an action list', desc:'Drop your notes and get owners, dates, and a status update drafted for the client.', echo:'professional-services' },
+};
+function pickRole(role){
+  const r = RECO[role] || RECO.ops;
+  document.getElementById('fr-welcome').style.display='none';
+  document.getElementById('reco-title').textContent = r.title;
+  document.getElementById('reco-desc').textContent = r.desc;
+  document.getElementById('fr-reco-sub').textContent = 'Based on a '+r.echo+' role. One click runs it on your real work now.';
+  const reco=document.getElementById('fr-reco'); reco.style.display='block'; reco.classList.add('fade-in');
+}
+function runRecommended(){ goStep(5); }
+function skipFirstRun(){
+  // user opted out of guidance: drop into a genuinely empty surface, not the canned value thread.
+  // stay logically on step 4 (first run) but swap to the blank shell view; composer + nav stay present.
+  showShellView('view-blank');
+  blankMode = true;
+  document.getElementById('shell-input').focus();
+}
+
+/* ---------------- STEP 5: first value moment ---------------- */
+let toolSaved=false, runCount=0;
+function acceptTool(){
+  if(toolSaved) return; toolSaved=true;
+  const list=document.getElementById('saved-tools');
+  list.innerHTML = `
+    <div class="tool-row fade-in" onclick="rerunTool()">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7v8l10-12h-7z"/></svg>
+      Weekly stock cleanup
+      <span class="value-chip">~3 hrs / mo</span>
+    </div>`;
+  const card=document.getElementById('proactive-card');
+  card.outerHTML = `
+    <div class="fade-in">
+      <p style="margin:0 0 6px"><b>Saved.</b> "Weekly stock cleanup" is now a one-click tool in your sidebar.</p>
+      <div class="toolcard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex:none"><path d="M13 2L3 14h7v8l10-12h-7z"/></svg>
+        <div class="meta">
+          <div class="t">Weekly stock cleanup</div>
+          <div class="s">Drop a stock export → cleaned 900-row report, reorder flags, by location.</div>
+        </div>
+        <span class="value-chip">~3 hrs / mo</span>
+      </div>
+      <p class="muted small" style="margin-top:8px">Next week, just drop the file or tap the tool. No need to re-explain the steps.</p>
+    </div>`;
+  scrollShell();
+}
+function notNow(){ document.getElementById('proactive-card').outerHTML = `<p class="muted fade-in" style="margin:0">No problem. I will hold off and ask again only if the pattern keeps up.</p>`; scrollShell(); }
+function dismissCard(){ document.getElementById('proactive-card').outerHTML = `<p class="muted small fade-in" style="margin:0">Dismissed. I will stay quiet on this one.</p>`; scrollShell(); }
+function rerunTool(){
+  if(!toolSaved){ goStep(5); return; }
+  runCount++;
+  const thread=document.getElementById('value-thread');
+  const block=document.createElement('div'); block.className='fade-in';
+  block.innerHTML = `
+    <div class="msg user"><div class="bubble">Ran <b>Weekly stock cleanup</b> on this week's export</div></div>
+    <div class="msg assistant">
+      <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+      <div class="body"><div class="name">ChatGPT</div>
+        <div class="run-output">
+          <p style="margin:0 0 6px">Same steps as your saved tool, no setup needed.</p>
+          <p style="margin:0"><b>17,990 rows → 900 rows.</b> 28 SKUs below min flagged. <code>weekly_stock_report.xlsx</code> ready.</p>
+        </div>
+        <p class="muted small" style="margin-top:8px">Run ${runCount} of your saved tool · ~45 min saved this week</p>
+      </div>
+    </div>`;
+  thread.appendChild(block);
+  // make sure we are on the value view
+  if(cur!==5) goStep(5);
+  scrollShell();
+}
+function scrollShell(){ const s=document.getElementById('shell-scroll'); setTimeout(()=>{ s.scrollTop=s.scrollHeight; },60); }
+
+/* ---------------- shell composer ---------------- */
+let blankMode = false;
+function sendMessage(){
+  const ta=document.getElementById('shell-input'); const text=ta.value.trim(); if(!text) return;
+  let thread;
+  if(blankMode){
+    // user opted out of guidance and is composing on the empty surface: build their own thread here.
+    thread=document.getElementById('blank-thread');
+    const hint=thread.querySelector('div[style*="text-align:center"]');
+    if(hint) hint.remove();
+  } else {
+    // ensure a thread exists: if not on the value view, switch to it
+    if(cur!==5) goStep(5);
+    thread=document.getElementById('value-thread');
+  }
+  const u=document.createElement('div'); u.className='msg user fade-in';
+  u.innerHTML=`<div class="bubble"></div>`; u.querySelector('.bubble').textContent=text; thread.appendChild(u);
+  const a=document.createElement('div'); a.className='msg assistant fade-in';
+  a.innerHTML=`<div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+    <div class="body"><div class="name">ChatGPT</div><p style="margin:0">Got it. I can help with that. (Prototype reply: this is a design exploration, so responses are canned.)</p></div>`;
+  thread.appendChild(a);
+  ta.value=''; scrollShell();
+}
+function composerKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); } }
+/* demo Attach affordance: inject a faux file chip so the happy path ("Drop your weekly export") is not a dead end */
+function attachDemo(){
+  const wrap=document.getElementById('attach-chips');
+  wrap.style.display='flex';
+  const chip=document.createElement('span');
+  chip.className='badge';
+  chip.style.cssText='display:inline-flex;align-items:center;gap:6px;font-weight:500';
+  chip.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/></svg>stock_export.csv <span style="cursor:pointer;color:var(--text-3)" onclick="this.closest('span.badge').remove();var w=document.getElementById('attach-chips');if(!w.children.length)w.style.display='none'">×</span>`;
+  wrap.appendChild(chip);
+}
+
+/* ---------------- STEP 6: connectors with OAuth-style consent ---------------- */
+const CONNECTORS = [
+  { id:'sfdc',   name:'Salesforce',    letter:'SF', desc:'CRM: leads, opportunities, account activity.',
+    scopes:[ {t:'View your leads and contacts', i:'eye'}, {t:'View opportunities and pipeline stages', i:'eye'}, {t:'View account activity history', i:'clock'} ] },
+  { id:'gdrive', name:'Google Drive',   letter:'GD', desc:'Docs and sheets: proposals, trackers, exports.',
+    scopes:[ {t:'View files you choose to share with ChatGPT', i:'doc'}, {t:'View file names and folders', i:'folder'} ] },
+  { id:'hubspot',name:'HubSpot',        letter:'HS', desc:'Marketing and email: sequences and outbound.',
+    scopes:[ {t:'View email sequences and outbound history', i:'mail'}, {t:'View contact engagement', i:'eye'} ] },
+  { id:'erp',    name:'NetSuite ERP',   letter:'NS', desc:'Finance: invoices, GL, month-end close.',
+    scopes:[ {t:'View invoices and general-ledger lines', i:'doc'}, {t:'View month-end close status', i:'clock'} ] },
+];
+const PATTERNS = [
+  { id:'p1', req:['sfdc'], title:'Leads sit ~6 days before anyone makes first contact',
+    ev:'312 inbound leads in 90 days · median first-touch 6.1 days · 38% never touched' },
+  { id:'p2', req:['hubspot','sfdc'], title:'Reps rewrite essentially the same follow-up email every week',
+    ev:'~47 follow-ups / week · 71% are >80% similar to a prior send' },
+  { id:'p3', req:['gdrive'], title:'The same proposal is rebuilt from scratch for each quote',
+    ev:'58 proposal docs created from blank in 90 days · 9 reusable shared sections' },
+  { id:'p4', req:['erp'], title:'Month-end reconciliation is done by hand against the bank export',
+    ev:'~3,400 GL lines matched manually each month · ~11 hrs logged at close' },
+];
+const PLAYBOOKS = {
+  p1:{ pattern:'Leads sit ~6 days before first touch', title:'Lead triage & first-touch agent', time:'~5 hrs / week', needs:null,
+       blurb:'Watches new Salesforce leads, scores them, and drafts a first-touch message within minutes for a rep to approve.' },
+  p2:{ pattern:'Reps rewrite the same follow-up weekly', title:'Weekly follow-up writer', time:'~3 hrs / week', needs:null,
+       blurb:'Generates each rep\'s follow-ups from the deal\'s own history. You approve before anything sends.' },
+  p3:{ pattern:'Proposals rebuilt from scratch each quote', title:'Proposal drafter', time:'~4 hrs / week', needs:'Pulls richer pricing if you connect your ERP',
+       blurb:'Assembles a first-draft proposal from your reusable sections and the opportunity details in Drive.' },
+  p4:{ pattern:'Month-end reconciliation done by hand', title:'Reconciliation assistant', time:'~9 hrs / month', needs:'Needs your bank feed connected to auto-match',
+       blurb:'Matches GL lines to the bank export and flags only the exceptions for a human to review.' },
+};
+const connState = { connected:new Set(), setup:new Set() };
+const scopeIcon = {
+  eye:'<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  doc:'<path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/>',
+  folder:'<path d="M3 6h6l2 2h10v11H3z"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+};
+function renderConnectors(){
+  const grid=document.getElementById('conn-grid');
+  grid.innerHTML = CONNECTORS.map(c=>{
+    const on = connState.connected.has(c.id);
+    return `
+    <div class="conn-tile">
+      <div class="head">
+        <div class="logo">${c.letter}</div>
+        <div><div class="name">${c.name}</div></div>
+        ${ on ? '<span class="badge green" style="margin-left:auto">Connected</span>' : '<span class="state" style="margin-left:auto">Not connected</span>' }
+      </div>
+      <div class="desc">${c.desc}</div>
+      <div class="foot">
+        ${ on
+          ? `<button class="btn secondary" style="padding:6px 14px;font-size:13px" onclick="manageConnector('${c.id}')">Manage</button>
+             <button class="btn ghost" style="padding:6px 12px;font-size:13px" onclick="disconnect('${c.id}')">Disconnect</button>
+             <span class="state" style="margin-left:auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Authorized · read-only</span>`
+          : `<button class="btn" style="padding:6px 16px;font-size:13px" onclick="openConsent('${c.id}')">Connect</button>` }
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('to-playbooks').disabled = connState.connected.size < 1;
+}
+/* OAuth-style consent ceremony: account picker + explicit read-only scopes + Allow/Cancel */
+function openConsent(id){
+  const c=CONNECTORS.find(x=>x.id===id);
+  const box=document.getElementById('consentBox');
+  box.innerHTML = `
+    <div class="c-head">
+      <div class="logo">${c.letter}</div>
+      <span class="arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      <div class="logo" style="background:#0d0d0d;color:#fff">GPT</div>
+      <div style="margin-left:4px"><div style="font-weight:600">Authorize ${c.name}</div><div class="small muted">ChatGPT is requesting access</div></div>
+    </div>
+    <div class="c-body">
+      <div class="acct-pick">
+        <div class="av">IJ</div>
+        <div><div style="font-weight:600;font-size:14px">ian@signco.example</div><div class="small muted">${c.name} account</div></div>
+        <span class="switch" onclick="this.textContent='(demo) switch account'">Switch</span>
+      </div>
+      <div class="small muted">ChatGPT will be able to:</div>
+      <ul class="scope-list">
+        ${c.scopes.map(s=>`<li>
+          <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${scopeIcon[s.i]}</svg></span>
+          <span>${s.t}</span>
+          <span class="ro">Read-only</span>
+        </li>`).join('')}
+      </ul>
+      <p class="small muted" style="margin:12px 0 0">No write access is requested. Any action that creates or changes data would ask you again at the time.</p>
+    </div>
+    <div class="c-foot">
+      <button class="btn block" onclick="allowConsent('${c.id}')">Allow read-only access</button>
+      <button class="btn secondary block" style="margin-top:8px" onclick="closeConsent()">Cancel</button>
+      <div class="trust">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+        Credentials are entered on ${c.name}'s own site · <a onclick="return false">Privacy policy</a>
+      </div>
+    </div>`;
+  document.getElementById('consentVeil').classList.add('open');
+}
+function closeConsent(){ document.getElementById('consentVeil').classList.remove('open'); }
+function allowConsent(id){
+  // only NOW does the connector become connected — never before consent
+  connState.connected.add(id);
+  closeConsent();
+  renderConnectors();
+}
+function disconnect(id){ connState.connected.delete(id); renderConnectors(); }
+function manageConnector(id){
+  const c=CONNECTORS.find(x=>x.id===id);
+  const box=document.getElementById('infoBox');
+  box.innerHTML = `
+    <div class="c-head"><div class="logo">${c.letter}</div>
+      <div style="margin-left:4px"><div style="font-weight:600">Manage ${c.name}</div><div class="small muted">Access level: read-only</div></div></div>
+    <div class="c-body">
+      <div class="small muted">Authorized scopes</div>
+      <ul class="scope-list">
+        ${c.scopes.map(s=>`<li><span>${s.t}</span><span class="ro">Read-only</span></li>`).join('')}
+      </ul>
+      <p class="small muted" style="margin:12px 0 0">Re-authorize or disconnect anytime. (Demo dialog: design exploration.)</p>
+    </div>
+    <div class="c-foot"><button class="btn block" onclick="closeInfo()">Close</button></div>`;
+  document.getElementById('infoVeil').classList.add('open');
+}
+/* generic placeholder dialog for not-yet-built workspace affordances */
+function showPlaceholder(title, body){
+  const box=document.getElementById('infoBox');
+  box.innerHTML = `
+    <div class="c-head"><div style="font-weight:600">${title}</div></div>
+    <div class="c-body"><p class="small muted" style="margin:0">${body}</p></div>
+    <div class="c-foot"><button class="btn block" onclick="closeInfo()">Close</button></div>`;
+  document.getElementById('infoVeil').classList.add('open');
+}
+function closeInfo(){ document.getElementById('infoVeil').classList.remove('open'); }
+function renderPatternsAndPlaybooks(){
+  const found = PATTERNS.filter(p=>p.req.every(r=>connState.connected.has(r)));
+  const names = [...connState.connected].map(id=>CONNECTORS.find(c=>c.id===id).name).join(', ');
+  document.getElementById('pb-source').textContent = names ? ('based on '+names) : 'based on connected systems';
+  const list=document.getElementById('pattern-list');
+  list.innerHTML = found.length ? found.map(p=>`
+    <div class="pattern-row"><span class="dot2"></span>
+      <div><div>${p.title}</div><div class="ev">${p.ev}</div></div></div>`).join('')
+    : `<p class="small muted">No repeated patterns yet from what is connected. Connect another system to widen the view.</p>`;
+  const grid=document.getElementById('pb-grid');
+  grid.innerHTML = found.length ? found.map(p=>{
+    const pb=PLAYBOOKS[p.id]; const done=connState.setup.has(p.id);
+    return `<div class="playbook">
+      <div class="pb-pattern">Detected: ${pb.pattern}</div>
+      <div class="pb-title">${pb.title}</div>
+      <div class="muted small">${pb.blurb}</div>
+      <div class="pb-time">Est. time saved: ${pb.time}</div>
+      <div class="pb-foot">
+        <button class="btn ${done?'secondary':''}" ${done?'disabled':''} onclick="setupPlaybook('${p.id}')" style="padding:6px 16px;font-size:13px">${done?'Set up':'Set up'}</button>
+        ${done
+          ? `<span class="badge green"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" style="vertical-align:-1px;margin-right:4px"><path d="M20 6L9 17l-5-5"/></svg>Set up and ready</span>`
+          : (pb.needs ? `<span class="badge warn">${pb.needs}</span>` : `<span class="badge">Ready to run</span>`)}
+      </div></div>`;
+  }).join('') : `<p class="small muted">Connect a system to get suggested playbooks.</p>`;
+  const n=connState.setup.size;
+  document.getElementById('pb-tally').textContent = n===1 ? '1 playbook set up' : n+' playbooks set up';
+}
+function setupPlaybook(id){ connState.setup.add(id); renderPatternsAndPlaybooks(); }
+
+/* When entering steps 6 / 7 via the router, (re)render their dynamic content */
+const _goStep = goStep;
+goStep = function(n){
+  _goStep(n);
+  if(n===6) renderConnectors();
+  if(n===7) renderPatternsAndPlaybooks();
+};
+
+/* ---------------- STEP 8: refresh button flourish ---------------- */
+document.getElementById('refreshBtn').addEventListener('click', function(){
+  this.textContent='Synced'; const self=this; setTimeout(()=>{ self.textContent='Refresh window'; },1400);
+});
+
+/* ---------------- init ---------------- */
+renderDots();
+syncSummary();
+</script>
+</body>
+</html>

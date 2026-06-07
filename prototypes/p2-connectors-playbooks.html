@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatGPT — Connect your systems</title>
+<link rel="stylesheet" href="../assets/gpt-ui.css">
+<style>
+  /* Local touches only — leans on gpt-ui.css for everything structural */
+  .stepper { display:flex; align-items:center; gap:8px; max-width:var(--content-max); margin:0 auto 22px; padding:4px 0; }
+  .stepper .step { display:flex; align-items:center; gap:8px; color:var(--text-3); font-size:14px; }
+  .stepper .step .num { width:24px; height:24px; border-radius:50%; border:1px solid var(--border-2);
+    display:grid; place-items:center; font-size:13px; font-weight:600; color:var(--text-3); background:var(--bg-elev); }
+  .stepper .step.active { color:var(--text); font-weight:600; }
+  .stepper .step.active .num { background:var(--text); color:var(--bg); border-color:var(--text); }
+  .stepper .step.done .num { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .stepper .step.done { color:var(--text-2); }
+  .stepper .line { flex:1; height:1px; background:var(--border); }
+  .stepper .step.locked { opacity:.55; }
+
+  .connector { display:flex; flex-direction:column; gap:10px; }
+  .connector .head { display:flex; align-items:center; gap:12px; }
+  .connector .logo { width:40px; height:40px; border-radius:10px; display:grid; place-items:center;
+    font-weight:700; font-size:14px; color:var(--text-2); background:var(--hover);
+    border:1px solid var(--border); flex:none; }
+  .connector .name { font-weight:600; }
+  .connector .desc { color:var(--text-2); font-size:14px; }
+  .connector .foot { margin-top:auto; }
+
+  .pattern-row { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .pattern-row:last-child { border-bottom:0; }
+  .pattern-row .dot { width:8px; height:8px; border-radius:50%; background:var(--warn); margin-top:8px; flex:none; }
+  .pattern-row .ev { color:var(--text-3); font-size:13px; margin-top:2px; }
+
+  .playbook .pb-pattern { font-size:13px; color:var(--text-2); }
+  .playbook .pb-title { font-weight:600; font-size:16px; margin:6px 0 4px; }
+  .playbook .pb-time { font-size:13px; color:var(--accent); font-weight:600; }
+  .playbook .pb-foot { display:flex; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
+
+  .nav-actions { display:flex; justify-content:space-between; max-width:var(--content-max);
+    margin:24px auto 0; gap:12px; }
+
+  .empty-note { max-width:var(--content-max); margin:0 auto; }
+</style>
+</head>
+<body class="gpt light">
+<div class="gpt-app">
+
+  <!-- SIDEBAR -->
+  <aside class="gpt-sidebar">
+    <div class="brand">
+      <span class="avatar" style="background:#0d0d0d;">G</span>
+      <span>ChatGPT Business</span>
+    </div>
+    <div class="newchat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New chat</div>
+
+    <div class="section-label">Workspace</div>
+    <div class="nav-item active">Connect systems</div>
+    <div class="nav-item">Saved playbooks</div>
+    <div class="nav-item">Weekly follow-up writer</div>
+    <div class="nav-item">Lead triage agent</div>
+
+    <div class="section-label">Recent</div>
+    <div class="nav-item">Q2 pipeline cleanup</div>
+    <div class="nav-item">Reconciliation helper</div>
+    <div class="nav-item">Onboarding email draft</div>
+
+    <div class="spacer"></div>
+    <div class="acct">
+      <span class="avatar">RM</span>
+      <div style="line-height:1.2;">
+        <div style="font-size:14px;font-weight:600;">Riverbend Mfg.</div>
+        <div class="small muted">Business · 42 seats</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="gpt-main">
+    <div class="gpt-topbar">
+      <div class="model">ChatGPT 5 <span class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+      <div class="right">
+        <span class="badge green">Connectors enabled</span>
+        <span class="avatar">RM</span>
+      </div>
+    </div>
+
+    <div class="gpt-scroll">
+      <div class="thread">
+
+        <!-- Assistant intro -->
+        <div class="msg assistant">
+          <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+          <div class="body">
+            <div class="name">ChatGPT</div>
+            <p>You've been running playbooks inside ChatGPT for a few months. Now that your workspace can connect to your systems, the same engine that suggested those playbooks can see across your tools — and spot work worth automating that it couldn't see before.</p>
+            <p class="small muted">This is the same value engine you already use. It just gets richer when you let it read more than one place.</p>
+          </div>
+        </div>
+
+        <!-- STEPPER -->
+        <div class="stepper" id="stepper">
+          <div class="step active" data-stepnum="1"><span class="num">1</span> Connect</div>
+          <div class="line"></div>
+          <div class="step locked" data-stepnum="2"><span class="num">2</span> What we see</div>
+          <div class="line"></div>
+          <div class="step locked" data-stepnum="3"><span class="num">3</span> Suggested playbooks</div>
+        </div>
+
+        <!-- ====== STEP 1: CONNECT ====== -->
+        <section id="step-1">
+          <div class="proactive">
+            <div class="eyebrow">STEP 1 — CONNECT YOUR SYSTEMS</div>
+            <p style="margin:8px 0 0;">Connect the tools your team already runs on. We only read what's needed to find repeated work. Every connection is optional, and you can disconnect any of them at any time.</p>
+          </div>
+
+          <div class="grid cols-2" id="connector-grid">
+            <!-- cards injected by JS -->
+          </div>
+
+          <div class="nav-actions">
+            <span></span>
+            <button class="btn" id="to-step-2" disabled>See what we found →</button>
+          </div>
+        </section>
+
+        <!-- ====== STEP 2: DIAGNOSTIC ====== -->
+        <section id="step-2" style="display:none;">
+          <div class="msg assistant" style="margin-top:0;">
+            <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+            <div class="body">
+              <div class="name">ChatGPT</div>
+              <p>Here is what we see across your connected systems. These are patterns we detected from your own data — nothing has been changed, and nothing runs until you set it up.</p>
+              <div class="proactive">
+                <div class="eyebrow">DETECTED PATTERNS · <span id="diag-source">based on connected systems</span></div>
+                <div id="pattern-list"></div>
+                <p class="small muted" style="margin:14px 0 0;">We only flag work we've seen repeat — not one-offs.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="nav-actions">
+            <button class="btn secondary" id="back-to-1">← Back to connections</button>
+            <button class="btn" id="to-step-3">Turn these into playbooks →</button>
+          </div>
+        </section>
+
+        <!-- ====== STEP 3: SUGGESTED PLAYBOOKS ====== -->
+        <section id="step-3" style="display:none;">
+          <div class="msg assistant" style="margin-top:0;">
+            <div class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg></div>
+            <div class="body">
+              <div class="name">ChatGPT</div>
+              <p>For each pattern we found, here's a playbook you can set up. Same engine that's been suggesting workflows all along — now it can propose ones that span your connected systems. Estimated time saved is our best guess from the volume we observed; we'll show real numbers once a playbook has run.</p>
+            </div>
+          </div>
+          <div class="grid cols-2" id="playbook-grid"></div>
+
+          <div class="nav-actions">
+            <button class="btn secondary" id="back-to-2">← Back to what we see</button>
+            <span class="small muted" style="align-self:center;" id="setup-tally">0 playbooks set up</span>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="proto-flag">Prototype — design exploration, not a shipped product</div>
+
+<script>
+(function () {
+  // ---- Mock data: realistic small US/Irish SMB (Riverbend Manufacturing) ----
+  const connectors = [
+    { id:"sfdc",   name:"Salesforce",  letter:"SF", desc:"CRM — leads, opportunities, account activity." },
+    { id:"hubspot",name:"HubSpot",     letter:"HS", desc:"Marketing & email — sequences and outbound." },
+    { id:"gdrive", name:"Google Drive",letter:"GD", desc:"Docs & sheets — proposals, trackers, exports." },
+    { id:"erp",    name:"NetSuite ERP",letter:"NS", desc:"Finance — invoices, GL, month-end close." }
+  ];
+
+  // Patterns keyed to which connector reveals them.
+  const patterns = [
+    { id:"p1", req:["sfdc"],
+      title:"Leads sit ~6 days before anyone makes first contact",
+      evidence:"312 inbound leads in the last 90 days · median first-touch 6.1 days · 38% never touched" },
+    { id:"p2", req:["hubspot","sfdc"],
+      title:"Reps rewrite essentially the same follow-up email every week",
+      evidence:"~47 follow-ups/week · 71% are >80% similar to a prior send" },
+    { id:"p3", req:["gdrive"],
+      title:"The same proposal is rebuilt from scratch for each quote",
+      evidence:"58 proposal docs created from blank in 90 days · 9 reused shared sections" },
+    { id:"p4", req:["erp"],
+      title:"Month-end reconciliation is done by hand against the bank export",
+      evidence:"~3,400 GL lines matched manually each month · ~11 hrs logged at close" }
+  ];
+
+  // Playbooks, one per pattern. needsMore = honest gating tag when an extra system helps.
+  const playbooks = {
+    p1: { pattern:"Leads sit ~6 days before first touch",
+          title:"Lead triage & first-touch agent",
+          time:"~5 hrs/week", needsMore:null,
+          blurb:"Watches new Salesforce leads, scores them, and drafts a first-touch message within minutes for a rep to approve." },
+    p2: { pattern:"Reps rewrite the same follow-up weekly",
+          title:"Weekly follow-up writer",
+          time:"~3 hrs/week", needsMore:null,
+          blurb:"Generates each rep's follow-ups from the deal's own history. You approve before anything sends." },
+    p3: { pattern:"Proposals rebuilt from scratch each quote",
+          title:"Proposal drafter",
+          time:"~4 hrs/week", needsMore:"Pulls richer pricing if you connect your ERP",
+          blurb:"Assembles a first-draft proposal from your reusable sections and the opportunity details in Drive." },
+    p4: { pattern:"Month-end reconciliation done by hand",
+          title:"Reconciliation assistant",
+          time:"~9 hrs/month", needsMore:"Needs your bank feed connected to auto-match",
+          blurb:"Matches GL lines to the bank export and flags only the exceptions for a human to review." }
+  };
+
+  const state = { connected:new Set(), setup:new Set() };
+
+  // ---------- STEP 1 render ----------
+  const grid = document.getElementById("connector-grid");
+  connectors.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "panel connector";
+    card.innerHTML = `
+      <div class="head">
+        <div class="logo">${c.letter}</div>
+        <div>
+          <div class="name">${c.name}</div>
+        </div>
+      </div>
+      <div class="desc">${c.desc}</div>
+      <div class="foot">
+        <button class="btn secondary block" data-conn="${c.id}">Connect</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  grid.addEventListener("click", e => {
+    const btn = e.target.closest("[data-conn]");
+    if (!btn) return;
+    const id = btn.dataset.conn;
+    if (state.connected.has(id)) {
+      state.connected.delete(id);
+      btn.textContent = "Connect";
+      btn.classList.remove("ghost"); btn.classList.add("secondary");
+    } else {
+      state.connected.add(id);
+      btn.textContent = "✓ Connected — disconnect";
+      btn.classList.remove("secondary"); btn.classList.add("ghost");
+    }
+    refreshConnState();
+  });
+
+  function refreshConnState() {
+    document.getElementById("to-step-2").disabled = state.connected.size < 1;
+  }
+
+  // ---------- STEP 2 render ----------
+  function renderDiagnostic() {
+    const list = document.getElementById("pattern-list");
+    list.innerHTML = "";
+    const found = patterns.filter(p => p.req.every(r => state.connected.has(r)));
+    document.getElementById("diag-source").textContent =
+      "based on " + [...state.connected].map(id => connectors.find(c=>c.id===id).name).join(", ");
+    if (!found.length) {
+      list.innerHTML = `<p class="small muted">No repeated patterns yet from what's connected. Connect another system to widen the view.</p>`;
+    }
+    found.forEach(p => {
+      const row = document.createElement("div");
+      row.className = "pattern-row";
+      row.innerHTML = `<span class="dot"></span>
+        <div><div>${p.title}</div><div class="ev">${p.evidence}</div></div>`;
+      list.appendChild(row);
+    });
+  }
+
+  // ---------- STEP 3 render ----------
+  function renderPlaybooks() {
+    const pg = document.getElementById("playbook-grid");
+    pg.innerHTML = "";
+    const found = patterns.filter(p => p.req.every(r => state.connected.has(r)));
+    if (!found.length) {
+      pg.innerHTML = `<p class="small muted empty-note">Connect a system to get suggested playbooks.</p>`;
+    }
+    found.forEach(p => {
+      const pb = playbooks[p.id];
+      const card = document.createElement("div");
+      card.className = "panel playbook";
+      const done = state.setup.has(p.id);
+      card.innerHTML = `
+        <div class="pb-pattern">Detected: ${pb.pattern}</div>
+        <div class="pb-title">${pb.title}</div>
+        <div class="muted small">${pb.blurb}</div>
+        <div class="pb-time" style="margin-top:10px;">Est. time saved: ${pb.time}</div>
+        <div class="pb-foot">
+          <button class="btn ${done?'secondary':''}" data-setup="${p.id}" ${done?'disabled':''}>
+            ${done ? '✓ Set up' : 'Set up'}
+          </button>
+          ${pb.needsMore ? `<span class="badge warn">${pb.needsMore}</span>` : `<span class="badge green">Ready to run</span>`}
+        </div>`;
+      pg.appendChild(card);
+    });
+    updateTally();
+  }
+
+  document.getElementById("playbook-grid").addEventListener("click", e => {
+    const btn = e.target.closest("[data-setup]");
+    if (!btn) return;
+    state.setup.add(btn.dataset.setup);
+    renderPlaybooks();
+  });
+
+  function updateTally() {
+    const n = state.setup.size;
+    document.getElementById("setup-tally").textContent =
+      n === 1 ? "1 playbook set up" : n + " playbooks set up";
+  }
+
+  // ---------- Stepper navigation ----------
+  function goto(step) {
+    [1,2,3].forEach(s => document.getElementById("step-"+s).style.display = (s===step?"":"none"));
+    document.querySelectorAll("#stepper .step").forEach(el => {
+      const n = +el.dataset.stepnum;
+      el.classList.toggle("active", n===step);
+      el.classList.toggle("done", n<step);
+      el.classList.toggle("locked", n>step);
+    });
+    if (step===2) renderDiagnostic();
+    if (step===3) renderPlaybooks();
+    document.querySelector(".gpt-scroll").scrollTop = 0;
+  }
+
+  document.getElementById("to-step-2").addEventListener("click", () => goto(2));
+  document.getElementById("to-step-3").addEventListener("click", () => goto(3));
+  document.getElementById("back-to-1").addEventListener("click", () => goto(1));
+  document.getElementById("back-to-2").addEventListener("click", () => goto(2));
+
+  refreshConnState();
+})();
+</script>
+</body>
+</html>

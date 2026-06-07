@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Value-realization agent — interactive prototype</title>
+<link rel="stylesheet" href="assets/gpt-ui.css"/>
+<style>
+  .hero { max-width:760px; margin:8vh auto 0; padding:0 20px; }
+  .hero h1 { font-size:30px; font-weight:600; margin-bottom:8px; }
+  .hero p { color:var(--text-2); font-size:17px; }
+  .cards { max-width:760px; margin:24px auto; padding:0 20px 60px; display:grid; gap:14px; }
+  .card { display:flex; justify-content:space-between; align-items:center; gap:16px; border:1px solid var(--border-2); border-radius:14px; padding:18px; text-decoration:none; color:var(--text); }
+  .card:hover { background:var(--hover); }
+  .card .t { font-weight:600; }
+  .card .d { color:var(--text-2); font-size:14px; margin-top:3px; }
+  .card.feat { border-color:var(--text); }
+  .go { color:var(--text-3); white-space:nowrap; }
+</style>
+</head>
+<body class="gpt dark">
+  <div class="hero">
+    <div class="eyebrow">Interactive prototype · design exploration</div>
+    <h1>A value-realization agent for SMB</h1>
+    <p>Clickable concept prototypes. The full journey runs start to finish; the parts below isolate each surface. Not a shipped product.</p>
+  </div>
+  <div class="cards">
+    <a class="card feat" href="prototypes/journey.html">
+      <div><div class="t">▶ Full end-to-end journey</div><div class="d">Signup → checkout → silent research → role start → first value → connectors → playbooks → admin health. Start here.</div></div>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="prototypes/p1-v1.html">
+      <div><div class="t">V1 experience</div><div class="d">The proactive in-product value moment + the internal review queue.</div></div><span class="go">Open →</span>
+    </a>
+    <a class="card" href="prototypes/p2-connectors-playbooks.html">
+      <div><div class="t">Connectors + playbooks</div><div class="d">Connect a system (real consent + scopes) → suggested playbooks.</div></div><span class="go">Open →</span>
+    </a>
+    <a class="card" href="prototypes/p3-signup.html">
+      <div><div class="t">Signup + silent research</div><div class="d">Reworked onboarding that pushes a role-fit start instead of a blank page.</div></div><span class="go">Open →</span>
+    </a>
+    <a class="card" href="prototypes/p4-consumption-health.html">
+      <div><div class="t">Consumption-health console</div><div class="d">Internal view that makes silent decline visible against a holdout.</div></div><span class="go">Open →</span>
+    </a>
+    <a class="card" href="architecture-diagrams.html">
+      <div><div class="t">Architecture (sketch)</div><div class="d">The same primitives scaling internal → SMB → enterprise.</div></div><span class="go">Open →</span>
+    </a>
+  </div>
+</body>
+</html>

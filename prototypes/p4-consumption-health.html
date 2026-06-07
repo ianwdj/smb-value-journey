@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Consumption Health — Internal Operator Console</title>
+<link rel="stylesheet" href="../assets/gpt-ui.css" />
+<style>
+  /* Minimal additions on top of gpt-ui.css — keep instrument-like, sober. */
+
+  /* Internal-tool chrome (override consumer ChatGPT look) */
+  .tool-sidebar .brand svg { flex:none; }
+  .tool-topbar { gap:18px; }
+  .tool-title { font-weight:600; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .tool-title .tool-scope { font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-3); border:1px solid var(--border-2); border-radius:5px; padding:1px 6px; }
+  .tool-nav { display:flex; gap:2px; }
+  .tool-nav-link { font-size:13px; color:var(--text-2); padding:6px 10px; border-radius:7px; cursor:pointer; text-decoration:none; }
+  .tool-nav-link:hover { background:var(--hover); }
+  .tool-nav-link.active { color:var(--text); background:var(--hover); }
+  @media (max-width:680px){ .tool-nav{ display:none; } }
+
+  .console-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+  .console-head h1 { font-size:22px; margin:0 0 4px; }
+  .kpi-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .kpi { border:1px solid var(--border); border-radius:10px; padding:10px 14px; background:var(--bg-elev); min-width:120px; }
+  .kpi .n { font-size:22px; font-weight:600; line-height:1.1; }
+  .kpi .l { font-size:12px; color:var(--text-3); }
+  .kpi.alert .n { color:var(--danger); }
+
+  /* Portfolio: single 100% part-to-whole stacked bar */
+  .stackbar { display:flex; height:30px; border-radius:7px; overflow:hidden; border:1px solid var(--border); margin:4px 0 6px; }
+  .stackbar > span { display:flex; align-items:center; justify-content:center; height:100%;
+    font-size:12px; font-variant-numeric:tabular-nums; color:#fff; min-width:0; }
+  .seg-grow   { background:#9ca3af; }            /* healthy → neutral */
+  .seg-stable { background:#c4c7cc; color:var(--text); } /* healthy → neutral */
+  .seg-decline{ background:var(--warn); }        /* concerning → muted warning */
+  .seg-novelty{ background:#d97757; }            /* concerning → muted warning */
+  .stack-axis { display:flex; justify-content:space-between; font-size:11px; color:var(--text-3);
+    font-variant-numeric:tabular-nums; margin-top:2px; }
+  .stack-axis .axis-title { color:var(--text-3); }
+  .cohort-legend { display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; margin-top:14px; }
+  @media (max-width:560px){ .cohort-legend{ grid-template-columns:1fr; } }
+  .cohort-row { display:flex; gap:9px; align-items:flex-start; font-size:13px; }
+  .cohort-row .swatch { flex:none; width:11px; height:11px; border-radius:3px; margin-top:3px; }
+  .cohort-row .ttl { font-weight:600; }
+  .cohort-row .ttl .cnt { font-weight:400; color:var(--text-2); font-variant-numeric:tabular-nums; }
+  .cohort-row.concern .ttl { color:var(--warn); }
+  .cohort-row .note { color:var(--text-2); margin-top:1px; }
+  .sw-grow{background:#9ca3af;} .sw-stable{background:#c4c7cc;} .sw-decline{background:var(--warn);} .sw-novelty{background:#d97757;}
+
+  /* Account grid */
+  .acct-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .acct-cell { border:1px solid var(--border); border-radius:9px; padding:9px 10px; cursor:pointer; background:var(--bg-elev); }
+  .acct-cell:hover { background:var(--hover); }
+  .acct-cell.sel { border-color:var(--text); box-shadow:0 0 0 1px var(--text) inset; }
+  .acct-cell .nm { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .acct-cell .sub { font-size:11px; color:var(--text-3); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+  .d-grow{background:#9ca3af;} .d-stable{background:#c4c7cc;} .d-decline{background:var(--warn);} .d-novelty{background:#d97757;}
+
+  .defn-list { margin:0; padding:0; list-style:none; }
+  .defn-list li { padding:10px 0; border-bottom:1px solid var(--border); display:flex; gap:12px; }
+  .defn-list li:last-child { border-bottom:0; }
+  .defn-list .badge { flex:none; margin-top:1px; }
+  .defn-list .txt { font-size:14px; }
+  .defn-list .txt b { font-weight:600; }
+  .modes { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:6px; }
+  .mode { border:1px solid var(--border); border-radius:9px; padding:12px; }
+  .mode .h { font-size:13px; font-weight:600; margin-bottom:3px; }
+  .mode .d { font-size:13px; color:var(--text-2); }
+  @media (max-width:560px){ .modes{grid-template-columns:1fr;} }
+
+  /* Drilldown */
+  .drill-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .drill-head .nm { font-size:16px; font-weight:600; }
+  .chart-wrap { position:relative; border:1px solid var(--border); border-radius:10px; padding:8px; background:var(--bg-elev); }
+  .legend { display:flex; gap:16px; font-size:12px; color:var(--text-2); margin-top:8px; flex-wrap:wrap; }
+  .legend i { display:inline-block; width:18px; height:0; border-top:2px solid; margin-right:5px; vertical-align:middle; }
+  .flag-line { font-size:13px; color:var(--danger); margin-top:10px; display:flex; gap:8px; align-items:flex-start; }
+  .flag-line svg { flex:none; margin-top:1px; }
+
+  /* Experiment */
+  .exp-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px){ .exp-grid{grid-template-columns:1fr;} }
+  .exp-cell { border:1px solid var(--border); border-radius:10px; padding:14px; }
+  .exp-cell .lab { font-size:12px; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; }
+  .exp-cell .big { font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .exp-cell .delta { font-size:13px; color:var(--text-2); margin-top:2px; }
+  .honest { font-size:13px; color:var(--text-2); border-left:3px solid var(--warn); padding:8px 12px; background:var(--warn-soft); border-radius:0 8px 8px 0; margin-top:12px; }
+  .pill-toggle { display:inline-flex; border:1px solid var(--border-2); border-radius:999px; overflow:hidden; }
+  .pill-toggle button { border:0; background:transparent; padding:6px 14px; cursor:pointer; font:inherit; font-size:13px; color:var(--text-2); }
+  .pill-toggle button.on { background:var(--text); color:var(--bg); }
+  .panel h3 { margin:0 0 4px; font-size:15px; }
+  .panel .sub { font-size:13px; color:var(--text-3); margin:0 0 12px; }
+</style>
+</head>
+<body class="gpt light">
+<div class="gpt-app">
+
+  <!-- Sidebar: internal-tool nav (no New chat, no model picker) -->
+  <aside class="gpt-sidebar tool-sidebar">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke="var(--text)" stroke-width="1.4"/>
+        <path d="M5 13l3-4 3 2.5L15 6" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Consumption Health</span>
+    </div>
+    <div class="section-label">Reports</div>
+    <div class="nav-item active">Consumption Health</div>
+    <div class="nav-item">Activation funnel</div>
+    <div class="nav-item">Renewal watch</div>
+    <div class="nav-item">Holdout registry</div>
+    <div class="section-label">Saved cohorts</div>
+    <div class="nav-item">Single-workflow SMB</div>
+    <div class="nav-item">Silently declining</div>
+    <div class="nav-item">Novelty-then-faded</div>
+    <div class="spacer"></div>
+    <div class="acct">
+      <span class="avatar">IJ</span>
+      <div style="font-size:13px;">
+        <div>Growth / Scaled-Revenue</div>
+        <div class="muted small">internal · read-only data</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="gpt-main">
+    <div class="gpt-topbar tool-topbar">
+      <div class="tool-title">Consumption Health <span class="tool-scope">internal</span></div>
+      <nav class="tool-nav">
+        <a class="tool-nav-link active">Overview</a>
+        <a class="tool-nav-link">Accounts</a>
+        <a class="tool-nav-link">Experiments</a>
+      </nav>
+      <div class="right">
+        <span class="badge">SMB base · n=20 sample</span>
+        <button class="btn secondary" id="refreshBtn">Refresh window</button>
+      </div>
+    </div>
+
+    <div class="gpt-scroll">
+      <div class="wrap">
+
+        <div class="console-head">
+          <div>
+            <h1>Consumption Health</h1>
+            <div class="muted small">Post-activation SMB accounts · trailing two 14-day windows · last sync 2026-06-06</div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi"><div class="n">20</div><div class="l">accounts in view</div></div>
+            <div class="kpi"><div class="n">1.6</div><div class="l">durable workflows / acct</div></div>
+            <div class="kpi alert"><div class="n" id="kpiRisk">6</div><div class="l">at-risk, no alert fires</div></div>
+          </div>
+        </div>
+
+        <!-- Panel 1: PORTFOLIO -->
+        <section class="panel" style="margin-bottom:16px;">
+          <h3>Portfolio</h3>
+          <p class="sub">20 SMB accounts split by durable-workflow trajectory across the last two windows. Healthy cohorts are neutral grey; the concerning half — silently declining and novelty-faded — is in warning tones. Half the portfolio (the warning segments) still looks "active."</p>
+
+          <div class="eyebrow" style="margin-bottom:4px;">Share of portfolio by trajectory</div>
+          <div class="stackbar" role="img" aria-label="Stacked share of portfolio: Growing 25%, Stable 25%, Silently declining 20%, Novelty-then-faded 30%">
+            <span class="seg-grow"    style="width:25%">25%</span>
+            <span class="seg-stable"  style="width:25%">25%</span>
+            <span class="seg-decline" style="width:20%">20%</span>
+            <span class="seg-novelty" style="width:30%">30%</span>
+          </div>
+          <div class="stack-axis"><span class="axis-title">0% of portfolio</span><span>100%</span></div>
+
+          <div class="cohort-legend">
+            <div class="cohort-row">
+              <span class="swatch sw-grow"></span>
+              <div><div class="ttl">Growing <span class="cnt">· 5 accounts · 25%</span></div>
+              <div class="note">Added a 2nd durable workflow that persisted into the current window.</div></div>
+            </div>
+            <div class="cohort-row">
+              <span class="swatch sw-stable"></span>
+              <div><div class="ttl">Stable <span class="cnt">· 5 accounts · 25%</span></div>
+              <div class="note">One durable workflow, flat across both windows. Fine today, no headroom captured.</div></div>
+            </div>
+            <div class="cohort-row concern">
+              <span class="swatch sw-decline"></span>
+              <div><div class="ttl">Silently declining <span class="cnt">· 4 accounts · 20%</span></div>
+              <div class="note"><b>The visible problem.</b> Durable-workflow runs trend down window-over-window, but raw activity still registers — so no cancellation or churn alert fires.</div></div>
+            </div>
+            <div class="cohort-row concern">
+              <span class="swatch sw-novelty"></span>
+              <div><div class="ttl">Novelty-then-faded <span class="cnt">· 6 accounts · 30%</span></div>
+              <div class="note">Spiked in window 1, failed the persistence test in window 2. Counted as activated, never became durable.</div></div>
+            </div>
+          </div>
+
+          <hr class="divider" />
+          <div class="muted small" style="margin-bottom:8px;">Click an account to drill in. Dot color matches its trajectory cohort above.</div>
+          <div class="acct-grid" id="acctGrid"></div>
+        </section>
+
+        <!-- Panel 2: DEFINITIONS -->
+        <section class="panel" style="margin-bottom:16px;">
+          <h3>What counts as a durable workflow</h3>
+          <p class="sub">The metric is deliberately strict so a spike or raw activity can't qualify. A workflow counts only if all three hold:</p>
+          <ul class="defn-list">
+            <li>
+              <span class="badge">1 · recurs</span>
+              <span class="txt">At least <b>3 runs in 14 days</b>. A one-off or a demo doesn't register.</span>
+            </li>
+            <li>
+              <span class="badge">2 · persists</span>
+              <span class="txt">Present across <b>two consecutive windows</b>. This kills novelty pops — the spike that fades in window 2 fails here.</span>
+            </li>
+            <li>
+              <span class="badge">3 · ties to outcome</span>
+              <span class="txt">Linked to a <b>user-side outcome</b> (a finished artifact, a shipped decision), <b>not raw agent activity</b> — activity often <i>rises right before a budget cut</i> as a team scrambles, so counting activity reads a decline as health.</span>
+            </li>
+          </ul>
+          <div style="margin-top:14px;">
+            <div class="eyebrow">Two durable modes</div>
+            <div class="modes">
+              <div class="mode">
+                <div class="h">Finished work-product</div>
+                <div class="d">Account uses it to produce a deliverable that leaves the product — a contract draft, a report, a customer reply. Outcome = the artifact shipped.</div>
+              </div>
+              <div class="mode">
+                <div class="h">Recurring thinking-partner</div>
+                <div class="d">Account returns to reason through decisions on a cadence. Outcome = the decision made, measured by repeat sessions on the same job-to-be-done.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel 3: ACCOUNT DRILLDOWN -->
+        <section class="panel" style="margin-bottom:16px;">
+          <div class="drill-head">
+            <span class="nm" id="drillName">Northgate Legal LLP</span>
+            <span class="badge danger" id="drillBadge">Silently declining</span>
+            <span class="muted small" id="drillMeta">14 seats · single-workflow: contract review</span>
+          </div>
+          <p class="sub">Durable-workflow runs per day, trailing 60 days. The dashed marker is where novelty wore off and decline began.</p>
+          <div class="chart-wrap" id="chartWrap"></div>
+          <div class="legend">
+            <span><i style="border-color:var(--accent)"></i>durable runs/day</span>
+            <span><i style="border-color:var(--text-3);border-top-style:dashed"></i>novelty wears off</span>
+            <span><i style="border-color:var(--warn)"></i>raw activity (still flat → why nothing fires)</span>
+          </div>
+          <div class="flag-line">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1l7 13H1L8 1z" stroke="currentColor" stroke-width="1.3"/><path d="M8 6v4M8 12h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span><b>No cancellation alert would fire.</b> Logins, seats, and raw message volume are flat — the account looks alive. Only the durable-workflow line shows the account quietly disengaging, ~22 days before the renewal review.</span>
+          </div>
+        </section>
+
+        <!-- Panel 4: EXPERIMENT -->
+        <section class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <h3>Experiment · install-next-workflow</h3>
+              <p class="sub" style="margin-bottom:0;">Randomized at signup. Treatment gets the value-realization engine; holdout gets nothing.</p>
+            </div>
+            <div class="pill-toggle" id="windowToggle">
+              <button class="on" data-w="30">30-day</button>
+              <button data-w="60">60-day</button>
+            </div>
+          </div>
+          <div class="exp-grid" style="margin-top:14px;">
+            <div class="exp-cell">
+              <div class="lab">Treatment (engine on)</div>
+              <div class="big" id="txWf">2.1</div>
+              <div class="delta">durable workflows / account</div>
+              <hr class="divider" />
+              <div class="lab">Retained into window 2</div>
+              <div class="big" id="txRet">81%</div>
+            </div>
+            <div class="exp-cell">
+              <div class="lab">Holdout (engine off)</div>
+              <div class="big" id="hoWf">1.4</div>
+              <div class="delta">durable workflows / account</div>
+              <hr class="divider" />
+              <div class="lab">Retained into window 2</div>
+              <div class="big" id="hoRet">67%</div>
+            </div>
+          </div>
+          <div class="honest" id="honestNote">
+            <b>Read this honestly:</b> more workflows <i>correlates</i> with retention. The lift above (+0.7 workflows, +14pts retained) is suggestive, not yet causal — only the randomized holdout proves the engine <i>caused</i> it rather than the engine simply selecting already-healthy accounts. We pre-commit to reporting a null if the gap doesn't hold.
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="proto-flag">Prototype — design exploration, not a shipped product</div>
+
+<script>
+(function(){
+  // ---- Mock SMB portfolio: 20 accounts ----
+  var accounts = [
+    {id:'northgate', name:'Northgate Legal LLP', bucket:'decline', seats:14, wf:'contract review'},
+    {id:'pinepoint', name:'Pinepoint HVAC', bucket:'decline', seats:8, wf:'dispatch summaries'},
+    {id:'harbor', name:'Harbor Bookkeeping', bucket:'decline', seats:6, wf:'reconciliation notes'},
+    {id:'dellacc', name:'Della Accounting', bucket:'decline', seats:9, wf:'client memos'},
+    {id:'vertexm', name:'Vertex Marketing', bucket:'novelty', seats:5, wf:'ad copy drafts'},
+    {id:'lumen', name:'Lumen Design Co', bucket:'novelty', seats:4, wf:'brief generation'},
+    {id:'oakfield', name:'Oakfield Realty', bucket:'novelty', seats:7, wf:'listing descriptions'},
+    {id:'sablecu', name:'Sable Credit Union', bucket:'novelty', seats:11, wf:'policy lookup'},
+    {id:'mtnpeak', name:'Mountain Peak Gear', bucket:'novelty', seats:6, wf:'product blurbs'},
+    {id:'corner', name:'Corner Dental Grp', bucket:'novelty', seats:5, wf:'patient FAQ'},
+    {id:'brightw', name:'Brightway Logistics', bucket:'stable', seats:12, wf:'route notes'},
+    {id:'cedar', name:'Cedar & Co Law', bucket:'stable', seats:10, wf:'discovery review'},
+    {id:'tideline', name:'Tideline Insurance', bucket:'stable', seats:13, wf:'claims triage'},
+    {id:'maple', name:'Maple Clinic', bucket:'stable', seats:8, wf:'visit summaries'},
+    {id:'forge', name:'Forge Manufacturing', bucket:'stable', seats:15, wf:'spec drafting'},
+    {id:'apex', name:'Apex Property Mgmt', bucket:'grow', seats:9, wf:'tenant comms + leases'},
+    {id:'novaco', name:'Nova Consulting', bucket:'grow', seats:7, wf:'research + decks'},
+    {id:'rivertc', name:'River City Title', bucket:'grow', seats:6, wf:'title abstracts + memos'},
+    {id:'summitp', name:'Summit Payroll', bucket:'grow', seats:11, wf:'tax notes + filings'},
+    {id:'beacon', name:'Beacon Recruiting', bucket:'grow', seats:8, wf:'JD drafts + screens'}
+  ];
+  var bucketLabel = {grow:'Growing', stable:'Stable', decline:'Silently declining', novelty:'Novelty-then-faded'};
+  var bucketBadge = {grow:'green', stable:'', decline:'danger', novelty:'warn'};
+  var bucketDot   = {grow:'d-grow', stable:'d-stable', decline:'d-decline', novelty:'d-novelty'};
+
+  // ---- Render account grid ----
+  var grid = document.getElementById('acctGrid');
+  function renderGrid(selId){
+    grid.innerHTML = '';
+    accounts.forEach(function(a){
+      var cell = document.createElement('div');
+      cell.className = 'acct-cell' + (a.id===selId ? ' sel' : '');
+      cell.innerHTML = '<div class="nm"><span class="dot '+bucketDot[a.bucket]+'"></span>'+a.name+'</div>'+
+                       '<div class="sub">'+a.seats+' seats · '+bucketLabel[a.bucket]+'</div>';
+      cell.addEventListener('click', function(){ selectAccount(a.id); });
+      grid.appendChild(cell);
+    });
+  }
+
+  // ---- Drilldown: usage-over-time SVG ----
+  // Each account: a durable-runs series (60 pts) with a novelty peak then decline,
+  // plus a flat raw-activity series to show why nothing fires.
+  function seriesFor(a){
+    var n=60, durable=[], raw=[];
+    var peakDay, base;
+    if(a.bucket==='decline'){ peakDay=18; base=7; }
+    else if(a.bucket==='novelty'){ peakDay=9; base=5; }
+    else if(a.bucket==='stable'){ peakDay=14; base=6; }
+    else { peakDay=12; base=6; }
+    for(var d=0; d<n; d++){
+      var v;
+      if(a.bucket==='grow'){
+        v = base + d*0.10 + (d>30? (d-30)*0.08:0);
+      } else if(a.bucket==='stable'){
+        v = base + Math.sin(d/4)*0.6;
+      } else {
+        // ramp to peak, then decline
+        if(d<=peakDay){ v = base + (d/peakDay)*(a.bucket==='novelty'?6:5); }
+        else {
+          var decay = a.bucket==='novelty'? 0.55 : 0.20;
+          v = (base + (a.bucket==='novelty'?6:5)) - (d-peakDay)*decay;
+        }
+      }
+      v = Math.max(0.4, v + (Math.sin(d*1.7)*0.35));
+      durable.push(v);
+      // raw activity: stays roughly flat/high regardless — the trap
+      raw.push(base + 4 + Math.sin(d/3)*0.8);
+    }
+    return {durable:durable, raw:raw, peakDay:peakDay};
+  }
+
+  function drawChart(a){
+    var W=720, H=240, padL=34, padR=12, padT=14, padB=24;
+    var s = seriesFor(a);
+    var all = s.durable.concat(s.raw);
+    var max = Math.max.apply(null, all)*1.1, min=0;
+    var n = s.durable.length;
+    function X(i){ return padL + (i/(n-1))*(W-padL-padR); }
+    function Y(v){ return padT + (1-(v-min)/(max-min))*(H-padT-padB); }
+    function path(arr){
+      return arr.map(function(v,i){ return (i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); }).join(' ');
+    }
+    var gx = '';
+    // baseline + a couple gridlines
+    [0,0.5,1].forEach(function(f){
+      var y = padT + f*(H-padT-padB);
+      gx += '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="var(--border)" stroke-width="1"/>';
+    });
+    var peakX = X(s.peakDay);
+    var showNovelty = (a.bucket==='decline' || a.bucket==='novelty');
+    var marker = showNovelty
+      ? '<line x1="'+peakX.toFixed(1)+'" y1="'+padT+'" x2="'+peakX.toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--text-3)" stroke-width="1.2" stroke-dasharray="4 3"/>'+
+        '<text x="'+(peakX+5).toFixed(1)+'" y="'+(padT+12)+'" font-size="10" fill="var(--text-3)">novelty wears off</text>'
+      : '';
+    var svg =
+      '<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="usage over time">'+
+        gx+
+        marker+
+        '<path d="'+path(s.raw)+'" fill="none" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="2 4" opacity="0.75"/>'+
+        '<path d="'+path(s.durable)+'" fill="none" stroke="var(--accent)" stroke-width="2.4"/>'+
+        '<text x="'+padL+'" y="'+(H-6)+'" font-size="10" fill="var(--text-3)">day 0</text>'+
+        '<text x="'+(W-padR-30)+'" y="'+(H-6)+'" font-size="10" fill="var(--text-3)">day 60</text>'+
+      '</svg>';
+    document.getElementById('chartWrap').innerHTML = svg;
+  }
+
+  function selectAccount(id){
+    var a = accounts.find(function(x){return x.id===id;});
+    if(!a) return;
+    document.getElementById('drillName').textContent = a.name;
+    var badge = document.getElementById('drillBadge');
+    badge.textContent = bucketLabel[a.bucket];
+    badge.className = 'badge ' + (bucketBadge[a.bucket]||'');
+    document.getElementById('drillMeta').textContent = a.seats + ' seats · single-workflow: ' + a.wf;
+    var flag = document.querySelector('.flag-line');
+    flag.style.display = (a.bucket==='grow') ? 'none' : 'flex';
+    drawChart(a);
+    renderGrid(id);
+  }
+
+  // ---- Experiment toggle ----
+  var expData = {
+    '30': {txWf:'2.1', txRet:'81%', hoWf:'1.4', hoRet:'67%',
+           note:'more workflows <i>correlates</i> with retention. The 30-day lift (+0.7 workflows, +14pts retained) is suggestive, not yet causal — only the randomized holdout proves the engine <i>caused</i> it rather than selecting already-healthy accounts. We pre-commit to reporting a null if the gap doesn’t hold.'},
+    '60': {txWf:'2.4', txRet:'78%', hoWf:'1.5', hoRet:'63%',
+           note:'over 60 days the gap widens slightly (+0.9 workflows, +15pts retained), but a wider gap is still a correlation. Causation is only earned when the holdout, randomized at signup, rules out selection. We pre-commit to reporting a null if it doesn’t hold.'}
+  };
+  var toggle = document.getElementById('windowToggle');
+  toggle.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    Array.prototype.forEach.call(toggle.querySelectorAll('button'), function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    var d = expData[b.dataset.w];
+    document.getElementById('txWf').textContent=d.txWf;
+    document.getElementById('txRet').textContent=d.txRet;
+    document.getElementById('hoWf').textContent=d.hoWf;
+    document.getElementById('hoRet').textContent=d.hoRet;
+    document.getElementById('honestNote').innerHTML='<b>Read this honestly:</b> '+d.note;
+  });
+
+  // ---- Refresh button: re-sync timestamp feel ----
+  document.getElementById('refreshBtn').addEventListener('click', function(){
+    this.textContent='Synced';
+    var self=this;
+    setTimeout(function(){ self.textContent='Refresh window'; }, 1400);
+  });
+
+  // init
+  selectAccount('northgate');
+})();
+</script>
+</body>
+</html>
