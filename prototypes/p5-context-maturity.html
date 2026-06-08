@@ -6,39 +6,53 @@
 <title>Push + context loop, as the user sees it</title>
 <link rel="stylesheet" href="../assets/gpt-ui.css"/>
 <style>
-  /* dark-locked, colors from gpt-ui tokens only */
+  /* dark-locked, product colors from gpt-ui tokens. Annotations use a distinct amber so they read as reviewer notes, NOT product. */
+  .navico { width:18px; height:18px; flex:none; color:var(--text-2); }
+  .gpt-sidebar .nav-item { display:flex; align-items:center; gap:10px; }
+  .acct { gap:10px; }
+  .acct .biz { font-size:11px; color:var(--text-3); }
   .annobar { display:flex; align-items:center; gap:12px; max-width:var(--content-max); margin:0 auto; padding:10px 20px 0; }
   .annobar .muted { font-size:13px; }
   .toggle { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-2); cursor:pointer; }
-  .toggle .sw { width:36px; height:20px; border-radius:999px; background:var(--accent); position:relative; }
-  .toggle .sw::after { content:""; position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:var(--bg-elev); transition:all .15s; }
+  .toggle .sw { width:36px; height:20px; border-radius:999px; background:#f5a623; position:relative; }
+  .toggle .sw::after { content:""; position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:#1a1a1a; transition:all .15s; }
   .toggle.off .sw { background:var(--border-2); }
   .toggle.off .sw::after { right:18px; }
   .proactive { border:1px solid var(--border-2); border-radius:14px; background:var(--bg-elev); padding:16px; margin:6px 0; }
-  .proactive .eyebrow { color:var(--accent); font-weight:600; font-size:12px; }
-  .annotation { border-left:3px solid var(--accent); background:var(--bg-elev); padding:10px 14px; border-radius:0 10px 10px 0; margin:4px 0 16px 42px; }
-  .annotation .tag { color:var(--accent); font-weight:600; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
-  .annotation p { margin:4px 0 0; color:var(--text-2); font-size:14px; }
+  .proactive .eyebrow { color:var(--text-2); font-weight:600; font-size:12px; }
+  /* AMBER reviewer annotations - clearly not part of the product */
+  .annotation { border:1px dashed #f5a623; background:rgba(245,166,35,.10); padding:10px 14px; border-radius:10px; margin:4px 0 16px 42px; }
+  .annotation .tag { color:#f5a623; font-weight:700; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+  .annotation p { margin:4px 0 0; color:#f6d8a6; font-size:14px; }
   .annohide .annotation { display:none; }
-  .chip { display:inline-block; font-size:12px; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:3px 10px; margin-top:8px; }
+  .chip { display:inline-block; font-size:12px; color:var(--text-2); border:1px solid var(--border-2); border-radius:999px; padding:3px 10px; margin-top:8px; }
+  .composer .pill { display:flex; align-items:center; gap:5px; font-size:13px; color:var(--text-2); padding:6px 10px; border-radius:999px; }
+  .composer .pill:hover { background:var(--hover); }
 </style>
 </head>
 <body class="gpt dark">
 <div class="gpt-app">
   <aside class="gpt-sidebar">
-    <div class="brand"><span class="avatar">R</span> Rivera Signs</div>
-    <div class="newchat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New chat</div>
-    <div class="section-label">Recent</div>
+    <div class="brand">ChatGPT</div>
+    <div class="newchat"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New chat</div>
+    <div class="nav-item"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg> Search chats</div>
+    <div class="nav-item"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5h16M4 12h16M4 19h16"/></svg> Library</div>
+    <div class="nav-item"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> Apps</div>
+    <div class="nav-item"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg> Deep research</div>
+    <div class="nav-item"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg> Codex</div>
+    <div class="nav-item"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 3a4 4 0 013.9 5 4 4 0 01-1 7 4 4 0 01-5.8 0 4 4 0 01-1-7A4 4 0 0112 3z"/></svg> GPTs</div>
+    <div class="nav-item"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7h6l2 2h10v9a1 1 0 01-1 1H4a1 1 0 01-1-1z"/></svg> Projects</div>
+    <div class="section-label">Recents</div>
     <div class="nav-item active">Weekly stock cleanup</div>
     <div class="nav-item">Overdue invoices</div>
-    <div class="nav-item" id="savedTool" style="display:none;color:var(--accent)">Weekly stock cleanup (tool)</div>
+    <div class="nav-item hidden" id="savedTool">Weekly stock cleanup (tool)</div>
     <div class="spacer"></div>
-    <div class="acct"><span class="avatar">IR</span><div style="font-size:13px"> Inés Rivera<br><span class="muted small">Business workspace</span></div></div>
+    <div class="acct"><span class="avatar">IR</span><div style="font-size:13px;line-height:1.2">Inés Rivera<div class="biz">Business</div></div></div>
   </aside>
   <main class="gpt-main">
     <div class="gpt-topbar"><div class="model">ChatGPT 5 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div></div>
     <div class="annobar">
-      <span class="muted">This is exactly what the SMB user sees. Annotations explain what we are calling each move.</span>
+      <span class="muted">Exactly what the SMB user sees. The amber notes are reviewer annotations, not part of the product.</span>
       <span class="toggle" id="toggle" onclick="toggleAnno()"><span class="sw"></span> Annotations</span>
     </div>
     <div class="gpt-scroll" id="scroll">
@@ -58,17 +72,23 @@
 
         <div class="msg user"><div class="bubble">Dave, our accountant, signs off on anything invoice-related.</div></div>
         <div class="msg assistant"><span class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 013.9 5 4 4 0 01-1 7 4 4 0 01-5.8 0 4 4 0 01-1-7A4 4 0 0112 3z"/></svg></span><div class="body"><p>Got it. I will note that Dave (your external accountant) owns invoice approvals, and route these to him for a quick yes before anything sends. I will remember this for next time.</p><div class="chip">Context saved: 1 business rule</div></div></div>
-        <div class="annotation"><span class="tag">V2 - the SMB wrinkle</span><p>The context lived with an outsourced provider (the accountant), not inside the company. The agent captured the business rule and will reach the right owner. Each gap filled raises the account's context-maturity, which is what unlocks more autonomy and provable ROI over time. V1 is what ships first; this deeper context-building is V2, gated by a cost and feasibility check.</p></div>
+        <div class="annotation"><span class="tag">V2 - the SMB wrinkle</span><p>The context lived with an outsourced provider (the accountant), not inside the company. The agent captured the business rule and will reach the right owner. Each gap filled raises the account's context-maturity, which is what unlocks more autonomy and provable ROI over time. V1 ships first; this deeper context-building is V2, gated by a cost and feasibility check.</p></div>
 
       </div>
     </div>
-    <div class="composer-wrap"><div class="composer"><button class="icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><textarea class="ta" rows="1" placeholder="Message ChatGPT"></textarea><button class="icon-btn send"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 16.5V8m-3.5 3.5L12 8l3.5 3.5" fill="none" stroke="var(--bg-elev)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="composer-hint">Turn annotations off to see exactly what the customer sees.</div></div>
+    <div class="composer-wrap"><div class="composer">
+      <button class="icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <textarea class="ta" rows="1" placeholder="Ask anything"></textarea>
+      <span class="pill">Instant <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
+      <button class="icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></button>
+      <button class="icon-btn send"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 16.5V8m-3.5 3.5L12 8l3.5 3.5" fill="none" stroke="var(--bg-elev)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div><div class="composer-hint">Turn annotations off to see exactly what the customer sees.</div></div>
   </main>
 </div>
 <div class="proto-flag">Prototype. Design exploration, not a shipped product.</div>
 <script>
 function toggleAnno(){ const t=document.getElementById('toggle'); const off=t.classList.toggle('off'); document.getElementById('thread').classList.toggle('annohide', off); }
-function saveTool(btn){ btn.parentElement.style.display='none'; document.getElementById('savedChip').style.display='block'; document.getElementById('savedTool').style.display='block'; }
+function saveTool(btn){ btn.parentElement.style.display='none'; document.getElementById('savedChip').style.display='block'; document.getElementById('savedTool').classList.remove('hidden'); }
 </script>
 </body>
 </html>
