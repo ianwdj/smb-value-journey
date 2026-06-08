@@ -3,103 +3,72 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Context maturity: the self-diagnosis loop</title>
+<title>Push + context loop, as the user sees it</title>
 <link rel="stylesheet" href="../assets/gpt-ui.css"/>
 <style>
-  /* dark-locked, all colors from gpt-ui tokens (no hardcoded near-black text) */
-  .ladder { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:16px 0; }
-  .rung { border:1px solid var(--border-2); border-radius:10px; padding:12px; text-align:center; color:var(--text-3); background:var(--bg-elev); }
-  .rung .lvl { font-size:12px; }
-  .rung .nm { color:var(--text-2); font-weight:600; font-size:14px; margin-top:2px; }
-  .rung.done { color:var(--text); border-color:var(--border-2); }
-  .rung.cur { border-color:var(--accent); }
-  .rung.cur .nm { color:var(--text); }
-  .gap { display:flex; justify-content:space-between; gap:12px; align-items:center; border:1px solid var(--border-2); border-radius:12px; padding:14px; background:var(--bg-elev); margin:10px 0; }
-  .gap .why { color:var(--text-2); font-size:13px; margin-top:3px; }
-  .sig { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); color:var(--text-2); }
-  .sig:last-child { border-bottom:0; }
-  .sig b { color:var(--text); font-variant-numeric:tabular-nums; }
-  .roi { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
-  .roi .box { border:1px solid var(--border-2); border-radius:10px; padding:12px; background:var(--bg-elev); }
-  .roi .box .v { font-size:22px; font-weight:700; color:var(--text); }
-  .roi .box.next { border-color:var(--accent); }
-  .tickwrap { color:var(--accent); }
-  @media(max-width:760px){ .ladder{ grid-template-columns:1fr 1fr; } .grid.cols-2{ grid-template-columns:1fr; } .roi{ grid-template-columns:1fr; } }
+  /* dark-locked, colors from gpt-ui tokens only */
+  .annobar { display:flex; align-items:center; gap:12px; max-width:var(--content-max); margin:0 auto; padding:10px 20px 0; }
+  .annobar .muted { font-size:13px; }
+  .toggle { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-2); cursor:pointer; }
+  .toggle .sw { width:36px; height:20px; border-radius:999px; background:var(--accent); position:relative; }
+  .toggle .sw::after { content:""; position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:var(--bg-elev); transition:all .15s; }
+  .toggle.off .sw { background:var(--border-2); }
+  .toggle.off .sw::after { right:18px; }
+  .proactive { border:1px solid var(--border-2); border-radius:14px; background:var(--bg-elev); padding:16px; margin:6px 0; }
+  .proactive .eyebrow { color:var(--accent); font-weight:600; font-size:12px; }
+  .annotation { border-left:3px solid var(--accent); background:var(--bg-elev); padding:10px 14px; border-radius:0 10px 10px 0; margin:4px 0 16px 42px; }
+  .annotation .tag { color:var(--accent); font-weight:600; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+  .annotation p { margin:4px 0 0; color:var(--text-2); font-size:14px; }
+  .annohide .annotation { display:none; }
+  .chip { display:inline-block; font-size:12px; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:3px 10px; margin-top:8px; }
 </style>
 </head>
 <body class="gpt dark">
-<div class="wrap">
-  <div style="display:flex;align-items:center;gap:10px"><strong style="font-size:18px">Context maturity</strong> <span class="badge">internal</span> <span class="muted small">Rivera Signs</span></div>
-  <p class="muted" style="margin-top:6px;max-width:70ch">Durable value is gated by how much of an account's context is explicit enough for the agent to act on its own. The engine measures that from its own failures, fills the gaps, and only then pushes the next workflow. Higher maturity means more autonomy and more provable ROI.</p>
+<div class="gpt-app">
+  <aside class="gpt-sidebar">
+    <div class="brand"><span class="avatar">R</span> Rivera Signs</div>
+    <div class="newchat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New chat</div>
+    <div class="section-label">Recent</div>
+    <div class="nav-item active">Weekly stock cleanup</div>
+    <div class="nav-item">Overdue invoices</div>
+    <div class="nav-item" id="savedTool" style="display:none;color:var(--accent)">Weekly stock cleanup (tool)</div>
+    <div class="spacer"></div>
+    <div class="acct"><span class="avatar">IR</span><div style="font-size:13px"> Inés Rivera<br><span class="muted small">Business workspace</span></div></div>
+  </aside>
+  <main class="gpt-main">
+    <div class="gpt-topbar"><div class="model">ChatGPT 5 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div></div>
+    <div class="annobar">
+      <span class="muted">This is exactly what the SMB user sees. Annotations explain what we are calling each move.</span>
+      <span class="toggle" id="toggle" onclick="toggleAnno()"><span class="sw"></span> Annotations</span>
+    </div>
+    <div class="gpt-scroll" id="scroll">
+      <div class="thread" id="thread">
 
-  <div class="ladder">
-    <div class="rung done"><div class="lvl">Level 1</div><div class="nm">Ad hoc</div></div>
-    <div class="rung cur" id="rung2"><div class="lvl">Level 2 (current)</div><div class="nm">Documented</div></div>
-    <div class="rung" id="rung3"><div class="lvl">Level 3</div><div class="nm">Explicit context</div></div>
-    <div class="rung" id="rung4"><div class="lvl">Level 4</div><div class="nm">Autonomous</div></div>
-  </div>
+        <div class="msg user"><div class="bubble">Clean up this week's stock export like usual</div></div>
+        <div class="msg assistant"><span class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 013.9 5 4 4 0 01-1 7 4 4 0 01-5.8 0 4 4 0 01-1-7A4 4 0 0112 3z"/></svg></span><div class="body"><p>Done. 18,000 rows down to 900, same as the last few weeks.</p>
+          <div class="proactive"><div class="eyebrow">Noticed a pattern</div><p style="margin:6px 0">You have run this cleanup four weeks straight. Want me to save it as a one-click tool so you do not rebuild it each week?</p>
+          <div style="display:flex;gap:10px"><button class="btn" onclick="saveTool(this)">Save it</button><button class="btn secondary">Not now</button></div>
+          <div id="savedChip" style="display:none"><span class="chip">Saved to your sidebar</span></div></div>
+        </div></div>
+        <div class="annotation"><span class="tag">V1 - push, not pull</span><p>The agent spotted a routine the user already does and offered to automate it, right in the chat. No gallery to browse, no new place to learn. This is the V1 bet, and it is the whole experience the user feels.</p></div>
 
-  <div class="grid cols-2" style="gap:18px">
-    <div>
-      <div class="eyebrow" style="margin-bottom:6px">Where the agent got stuck this week</div>
-      <p class="muted small">The agent logs its own failures. Each is a piece of context that is implicit and should be explicit.</p>
-      <div id="gaps">
-        <div class="gap" data-gap><div><strong>No documented approval step for customer emails</strong><div class="why">Agent paused 4 times, unsure who signs off.</div></div><button class="btn secondary" onclick="fillGap(this)">Fill gap</button></div>
-        <div class="gap" data-gap><div><strong>Pricing sheet location is implicit</strong><div class="why">Agent asked a human for it 3 times this week.</div></div><button class="btn secondary" onclick="fillGap(this)">Fill gap</button></div>
-        <div class="gap" data-gap><div><strong>Owner of the stock spreadsheet is ambiguous</strong><div class="why">Two people edit it; no source of truth.</div></div><button class="btn secondary" onclick="fillGap(this)">Fill gap</button></div>
-      </div>
-      <div id="advanced" class="hidden panel" style="margin-top:8px;border-color:var(--accent)">
-        <strong>Maturity raised to Level 3: Explicit context.</strong>
-        <div class="muted small" style="margin-top:4px">Autonomy unlocked for 2 more workflows. The agent can now act on these without pausing for a human.</div>
+        <div class="msg user"><div class="bubble">Good. Now chase the overdue invoices.</div></div>
+        <div class="msg assistant"><span class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 013.9 5 4 4 0 01-1 7 4 4 0 01-5.8 0 4 4 0 01-1-7A4 4 0 0112 3z"/></svg></span><div class="body"><p>I can draft those. One gap first: I do not see a rule here for who approves customer emails, so I will not guess. Want me to send under your name, or check with whoever owns invoices?</p></div></div>
+        <div class="annotation"><span class="tag">V2 - context-gap detection</span><p>Instead of guessing, the agent flags where the org's context is implicit (here: the approval rule) and logs it. To the user this is just a sensible question. Under the hood it is the context-maturity loop: the agent journals what it is missing.</p></div>
+
+        <div class="msg user"><div class="bubble">Dave, our accountant, signs off on anything invoice-related.</div></div>
+        <div class="msg assistant"><span class="assistant-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 013.9 5 4 4 0 01-1 7 4 4 0 01-5.8 0 4 4 0 01-1-7A4 4 0 0112 3z"/></svg></span><div class="body"><p>Got it. I will note that Dave (your external accountant) owns invoice approvals, and route these to him for a quick yes before anything sends. I will remember this for next time.</p><div class="chip">Context saved: 1 business rule</div></div></div>
+        <div class="annotation"><span class="tag">V2 - the SMB wrinkle</span><p>The context lived with an outsourced provider (the accountant), not inside the company. The agent captured the business rule and will reach the right owner. Each gap filled raises the account's context-maturity, which is what unlocks more autonomy and provable ROI over time. V1 is what ships first; this deeper context-building is V2, gated by a cost and feasibility check.</p></div>
+
       </div>
     </div>
-
-    <div>
-      <div class="panel">
-        <div class="eyebrow" style="margin-bottom:8px">Signals driving the score</div>
-        <div class="sig"><span>Retries per task</span><b>2.1</b></div>
-        <div class="sig"><span>Context misses (had to ask a human)</span><b>38%</b></div>
-        <div class="sig"><span>Tasks completed unattended</span><b id="auto">41%</b></div>
-        <div class="sig"><span>Frustration / abandon flags</span><b>6</b></div>
-      </div>
-      <div class="panel" style="margin-top:12px">
-        <div class="eyebrow" style="margin-bottom:8px">ROI by maturity</div>
-        <div class="roi">
-          <div class="box"><div class="muted small">Current (Documented)</div><div class="v" id="roiNow">~5 hrs/wk</div><div class="muted small">saved, agent often paused</div></div>
-          <div class="box next"><div class="muted small">Next (Explicit context)</div><div class="v">~2.4x</div><div class="muted small">more, agent runs unattended</div></div>
-        </div>
-        <p class="muted small" style="margin-top:10px">Same product. The ROI difference is the account's context-maturity, which the agent can raise.</p>
-      </div>
-    </div>
-  </div>
-
-  <hr class="divider"/>
-  <p class="muted small">The loop: the agent observes where it got stuck, acts to make that context explicit (with the owner's approval), and measures whether the next teach now succeeds. Capability shown here; how context is stored is an implementation detail, out of scope for this prototype.</p>
+    <div class="composer-wrap"><div class="composer"><button class="icon-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><textarea class="ta" rows="1" placeholder="Message ChatGPT"></textarea><button class="icon-btn send"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 16.5V8m-3.5 3.5L12 8l3.5 3.5" fill="none" stroke="var(--bg-elev)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="composer-hint">Turn annotations off to see exactly what the customer sees.</div></div>
+  </main>
 </div>
-
 <div class="proto-flag">Prototype. Design exploration, not a shipped product.</div>
-
 <script>
-const TICK='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
-let filled=0;
-function fillGap(btn){
-  const row=btn.closest('[data-gap]');
-  btn.textContent='Drafting...'; btn.disabled=true;
-  setTimeout(()=>{
-    btn.outerHTML='<span class="badge green tickwrap">'+TICK+' Documented, pending approval</span>';
-    row.style.borderColor='var(--accent)';
-    filled++;
-    if(filled===3) advance();
-  }, 800);
-}
-function advance(){
-  document.getElementById('rung2').classList.remove('cur');
-  document.getElementById('rung2').classList.add('done');
-  const r3=document.getElementById('rung3'); r3.classList.add('cur','done');
-  document.getElementById('advanced').classList.remove('hidden');
-  document.getElementById('auto').textContent='73%';
-  document.getElementById('roiNow').textContent='~12 hrs/wk';
-}
+function toggleAnno(){ const t=document.getElementById('toggle'); const off=t.classList.toggle('off'); document.getElementById('thread').classList.toggle('annohide', off); }
+function saveTool(btn){ btn.parentElement.style.display='none'; document.getElementById('savedChip').style.display='block'; document.getElementById('savedTool').style.display='block'; }
 </script>
 </body>
 </html>
