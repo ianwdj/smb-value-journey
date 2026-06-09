@@ -214,10 +214,10 @@ const STEPS = [
 { name:'Connect a system', render:()=>shell(`<div class="thread">
   ${aiMsg(`<p>To go further, connect a system. We ask for read-only access and show you exactly what we read.</p>
     <div class="conn-grid" style="margin-top:8px" id="connGrid">
-      <div class="conn"><span class="logo">QB</span><div style="flex:1"><strong>QuickBooks</strong><div class="muted small">Invoices, customers</div></div><button class="btn secondary" onclick="consent('QuickBooks')">Connect</button></div>
-      <div class="conn"><span class="logo">GD</span><div style="flex:1"><strong>Google Drive</strong><div class="muted small">Sheets, docs</div></div><button class="btn secondary" onclick="consent('Google Drive')">Connect</button></div>
-      <div class="conn"><span class="logo">HS</span><div style="flex:1"><strong>HubSpot</strong><div class="muted small">Contacts, deals</div></div><button class="btn secondary" onclick="consent('HubSpot')">Connect</button></div>
-      <div class="conn"><span class="logo">SP</span><div style="flex:1"><strong>SharePoint</strong><div class="muted small">Files</div></div><button class="btn secondary" onclick="consent('SharePoint')">Connect</button></div>
+      <div class="conn" style="cursor:pointer" onclick="consent('QuickBooks')"><span class="logo">QB</span><div style="flex:1"><strong>QuickBooks</strong><div class="muted small">Invoices, customers</div></div><button class="btn secondary" onclick="consent('QuickBooks')">Connect</button></div>
+      <div class="conn" style="cursor:pointer" onclick="consent('Google Drive')"><span class="logo">GD</span><div style="flex:1"><strong>Google Drive</strong><div class="muted small">Sheets, docs</div></div><button class="btn secondary" onclick="consent('Google Drive')">Connect</button></div>
+      <div class="conn" style="cursor:pointer" onclick="consent('HubSpot')"><span class="logo">HS</span><div style="flex:1"><strong>HubSpot</strong><div class="muted small">Contacts, deals</div></div><button class="btn secondary" onclick="consent('HubSpot')">Connect</button></div>
+      <div class="conn" style="cursor:pointer" onclick="consent('SharePoint')"><span class="logo">SP</span><div style="flex:1"><strong>SharePoint</strong><div class="muted small">Files</div></div><button class="btn secondary" onclick="consent('SharePoint')">Connect</button></div>
     </div>`)}
 </div>`) },
 
@@ -292,18 +292,16 @@ function sumSync(){ const p=billMode==='mo'?25:20; const sub=(n*p).toFixed(2); d
 function pay(){ const b=document.getElementById('payBtn'); b.textContent='Processing...'; b.disabled=true; setTimeout(next,900); }
 function acceptTool(){ savedTool=true; document.getElementById('toolDone').classList.remove('hidden'); }
 function consent(name){
-  document.getElementById('app').innerHTML = `<div class="stage"><div class="consent">
+  const target = document.getElementById('connGrid') || document.getElementById('app');
+  target.innerHTML = `<div class="panel" style="margin-top:8px">
     <div style="display:flex;align-items:center;gap:10px"><span class="brandmark">${I.mark}</span><strong>Connect ${name}</strong></div>
-    <p class="muted small" style="margin-top:8px">ChatGPT is requesting access to your ${name} account.</p>
-    <div class="panel" style="margin:12px 0">
-      <div class="muted small" style="margin-bottom:6px">Signed in as ines@riverasigns.com</div>
-      <div class="scope"><span class="tick">${I.tick}</span><div><strong>Read-only.</strong> View invoices, customers, and totals.</div></div>
-      <div class="scope"><span class="tick">${I.tick}</span><div>No write access. ChatGPT cannot edit or send anything in ${name}.</div></div>
-      <div class="scope"><span class="tick">${I.tick}</span><div>Revocable anytime in Settings. Every read is logged.</div></div>
-    </div>
-    <div style="display:flex;gap:10px"><button class="btn" onclick="next()">Allow read-only access</button><button class="btn secondary" onclick="render()">Cancel</button></div>
+    <p class="muted small" style="margin-top:8px">ChatGPT is requesting access to your ${name} account (ines@riverasigns.com).</p>
+    <div class="scope"><span class="tick">${I.tick}</span><div><strong>Read-only.</strong> View invoices, customers, and totals.</div></div>
+    <div class="scope"><span class="tick">${I.tick}</span><div>No write access. ChatGPT cannot edit or send anything in ${name}.</div></div>
+    <div class="scope"><span class="tick">${I.tick}</span><div>Revocable anytime in Settings. Every read is logged.</div></div>
+    <div style="display:flex;gap:10px;margin-top:12px"><button class="btn" onclick="next()">Allow read-only access</button><button class="btn secondary" onclick="render()">Cancel</button></div>
     <p class="muted small" style="margin-top:10px">This is the consent step a real connector requires. No silent one-click connect.</p>
-  </div></div>`;
+  </div>`;
 }
 render();
 </script>
