@@ -19,11 +19,8 @@ function Sidebar({ hasWorkflow, runs, onOpenWorkflow, onNewChat }) {
   return (
     <aside className="s2-side">
       <div className="s2-side-top">
-        <div className="s2-brand">
-          <span className="s2-logo" />
-          <span>Workspace</span>
-        </div>
-        <button className="s2-icon-btn" title="Collapse"><I.Sidebar size={18} /></button>
+        <div className="s2-brand">ChatGPT</div>
+        <button className="s2-icon-btn" title="Close sidebar"><I.Sidebar size={18} /></button>
       </div>
 
       <div className="s2-side-scroll">
@@ -31,6 +28,9 @@ function Sidebar({ hasWorkflow, runs, onOpenWorkflow, onNewChat }) {
         <NavRow icon={I.Search} label="Search chats" />
         <NavRow icon={I.Library} label="Library" />
         <NavRow icon={I.Apps} label="Apps" />
+        <NavRow icon={I.Telescope} label="Deep research" />
+        <NavRow icon={I.Codex} label="Codex" />
+        <NavRow icon={I.Projects} label="Projects" />
 
         <div className="s2-section-label">Workflows</div>
         {hasWorkflow ? (
@@ -46,18 +46,22 @@ function Sidebar({ hasWorkflow, runs, onOpenWorkflow, onNewChat }) {
           <div className="s2-wf-empty">Nothing saved yet</div>
         )}
 
-        <div className="s2-section-label">Chats</div>
+        <div className="s2-section-label">Recents</div>
         {["Order export cleanup", "Quote for Westside Signs", "Vinyl supplier comparison", "Reprint policy draft"].map((c, i) => (
           <div className={"s2-chat" + (i === 0 ? " on" : "")} key={i}>{c}</div>
         ))}
       </div>
 
-      <div className="s2-side-foot">
-        <div className="s2-avatar">M</div>
-        <div className="s2-acct">
-          <span className="s2-acct-name">Marlin Sign &amp; Print</span>
-          <span className="s2-acct-plan">Business</span>
+      <div className="s2-side-foot-wrap">
+        <div className="s2-side-foot">
+          <div className="s2-avatar">M</div>
+          <div className="s2-acct">
+            <span className="s2-acct-name">Marlin Sign &amp; Print</span>
+            <span className="s2-acct-plan">Business</span>
+          </div>
+          <button className="s2-icon-btn" title="Workspace"><I.Store size={17} /></button>
         </div>
+        <button className="s2-invite"><I.Invite size={16} /><span>Invite team members</span></button>
       </div>
     </aside>
   );
