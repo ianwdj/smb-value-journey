@@ -253,19 +253,19 @@ const STEPS = [
 { name:'Recap', render:()=>`<div class="stage"><div class="center" style="text-align:center;max-width:520px">
   <span class="brandmark" style="margin:0 auto 14px">${I.mark}</span>
   <h1 style="font-size:24px;font-weight:600">That is the full journey</h1>
-  <p class="muted">Signup to durable value, then expansion, then the internal view that measures it.</p>
+  <p class="muted">From first setup to durable value, then expansion, then the internal view that measures it.</p>
   <div class="recap" style="text-align:left;max-width:420px;margin:18px auto 0">
-    <div><span class="n">1</span> Sign up and pay, with the friction fixed</div>
-    <div><span class="n">2</span> A silent research agent replaces the blank page</div>
-    <div><span class="n">3</span> One recommended start, not a menu</div>
-    <div><span class="n">4</span> The agent pushes the next workflow in context</div>
-    <div><span class="n">5</span> Connect a system with real consent and scopes</div>
-    <div><span class="n">6</span> Playbooks from connected data, on approval</div>
-    <div><span class="n">7</span> An internal view that catches silent decline</div>
+    <div><span class="n">1</span> A silent research agent replaces the blank page</div>
+    <div><span class="n">2</span> One recommended start, not a menu</div>
+    <div><span class="n">3</span> The agent pushes the next workflow in context</div>
+    <div><span class="n">4</span> Connect a system with real consent and scopes</div>
+    <div><span class="n">5</span> Playbooks from connected data, on approval</div>
+    <div><span class="n">6</span> An internal view that catches silent decline</div>
   </div>
   <button class="btn" style="margin-top:20px" onclick="go(0)">Restart</button>
 </div></div>` },
 ];
+STEPS.splice(0,4); // journey starts at "Setting up"; signup, plan, checkout, and workspace-ready removed
 
 /* ---------- router ---------- */
 let i = 0;
@@ -277,7 +277,7 @@ function render(){
   const dots = STEPS.map((_,k)=>`<span class="dot ${k===i?'on':''}"></span>`).join('');
   document.getElementById('dots').innerHTML = dots;
   window.scrollTo(0,0);
-  if(STEPS[i].auto){ setTimeout(()=>{ if(i===4) next(); }, 1600); }
+  if(STEPS[i].auto){ const cur=i; setTimeout(()=>{ if(i===cur) next(); }, 1600); }
 }
 function next(){ if(i<STEPS.length-1){ i++; render(); } }
 function prev(){ if(i>0){ i--; render(); } }
