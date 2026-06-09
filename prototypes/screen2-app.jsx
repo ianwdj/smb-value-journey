@@ -356,7 +356,7 @@ function App() {
         <header className="s2-topbar">
           <div className="s2-topbar-title">Order export cleanup</div>
           <div className="s2-entry">
-            <span className="s2-entry-label">Entry point</span>
+            <span className="s2-entry-label">Demo entry points</span>
             <div className="s2-entry-seg">
               {Object.keys(ENTRY).map((k) => (
                 <button key={k} className={entry === k ? "on" : ""} onClick={() => reset(k)}>{ENTRY[k]}</button>
